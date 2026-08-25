@@ -8,15 +8,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { BillingFooter, balanceText, formatBalance, formatCost } from '../src/client/BillingFooter.tsx'
 import type { BillingFooterProps } from '../src/client/BillingFooter.tsx'
-import { zh } from '../src/client/locales.ts'
+import { zh, type BillingKey } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-const t = makeTranslate(zh, commonZh) as BillingFooterProps['t']
+/** Dictionary lookup with a key passthrough, standing in for the harness's makeTranslate. */
+const t = ((key: string): string => zh[key as BillingKey] ?? key) as BillingFooterProps['t']
 
 /** Selector-hook stub: serves one fixed snapshot to any selector. */
 function selectorHook<T>(value: T): SnapshotSelectorHook<T> {

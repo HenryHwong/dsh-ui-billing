@@ -3,10 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023"],
     "types": ["node"],
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
@@ -15,10 +14,10 @@
     }
   },
   "include": [
-    "src/client/**/*.ts",
-    "src/client/**/*.tsx",
-    "src/css-modules.d.ts",
-    "tests/BillingFooter.client.spec.tsx",
-    "tests/sources.client.spec.ts"
+    "src/index.ts",
+    "src/balance.ts",
+    "src/invariant.ts",
+    "tests/apply.host.spec.ts",
+    "tests/balance.host.spec.ts"
   ]
 }
