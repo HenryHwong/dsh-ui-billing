@@ -1,0 +1,10 @@
+# dsh-ui-billing — installable bundle patch layer.
+
+# This patch inserts the plugin into the web profile's browser roster. The
+# node half (the /billing balance channel) loads with the plugin; the browser
+# half ships via exports["./client"], discovered through the package.json
+# `dsh.client` declaration.
+
+- insert:
+    - id: ui-billing
+      name: '@huanghanheng/dsh-ui-billing'
