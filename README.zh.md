@@ -86,11 +86,13 @@ npm install @huanghanheng/dsh-ui-billing
 
 ```sh
 pnpm install
-pnpm vitest run tests/        # 单元测试（模型 + 组件，jsdom）
+pnpm vitest run tests/        # 单元测试（组件 + 响应式源，jsdom；节点半端，node）
+pnpm exec tsc -p tsconfig.json        # 类型检查浏览器半端 + 客户端测试
+pnpm exec tsc -p tsconfig.host.json   # 类型检查节点半端 + host 测试
 pnpm bundle                   # tsdown 客户端打包（clientBundle 预设需要 harness 检出）
 ```
 
-仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入在 harness 发布该包前由 `types/dsh-billing/client.d.ts` 镜像提供。测试覆盖余额读取（HTTP 归一化、凭据解析）、响应式源（投影跟随、轮询生命周期）、组件（两行、刷新、轨道字形），以及两个半端在真实 cordis 上下文上的注册与释放。
+仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入在 harness 发布该包前由 `types/dsh-billing/client.d.ts` 镜像提供。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。测试覆盖余额读取（HTTP 归一化、凭据解析）、响应式源（投影跟随、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 runtime 的槽位服务。
 
 ## Known Limitations and Deferred Work
 

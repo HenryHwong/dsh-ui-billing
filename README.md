@@ -86,11 +86,13 @@ None.
 
 ```sh
 pnpm install
-pnpm vitest run tests/        # unit tests (model + component, jsdom)
+pnpm vitest run tests/        # unit tests (component + sources, jsdom; node half, node)
+pnpm exec tsc -p tsconfig.json        # typecheck the browser half + client tests
+pnpm exec tsc -p tsconfig.host.json   # typecheck the node half + host tests
 pnpm bundle                   # tsdown client bundle (needs a harness checkout for the clientBundle preset)
 ```
 
-The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` until the harness release publishes that package. The tests cover the balance read (HTTP normalization, credential resolution), the observable sources (projection following, polling lifecycle), the component (rows, refresh, rail glyph), and both plugin halves on real cordis contexts.
+The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` until the harness release publishes that package. The two halves typecheck as separate programs, matching the harness's host/client project split. The tests cover the balance read (HTTP normalization, credential resolution), the observable sources (projection following, polling lifecycle), the component (rows, refresh, rail glyph), and the node half on a real cordis context. The browser half's full-context registration spec lives in the harness checkout: published client bundles are ModuleLoader registrations, so a plain vitest import cannot load the runtime's slot services.
 
 ## Known Limitations and Deferred Work
 
