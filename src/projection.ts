@@ -146,10 +146,11 @@ export type BillingProjectionDefinition =
 export function billingProjectionDefinition(config: ResolvedBillingConfig): BillingProjectionDefinition {
   return {
     key: 'billing',
-    // Version 2: the price table and fold semantics changed since the
-    // harness-package rows (versions 1 and 5) were written; a version match
-    // would treat those stale checkpoints as current and keep the old prices.
-    stateVersion: 2,
+    // Version 3: the default table moved to the current official V4 schedule
+    // (off-peak + workday peak windows); rows folded at the older rates —
+    // harness-package versions 1 and 5, plugin version 2 — must not seed
+    // stale checkpoints, so every session refolds on next read.
+    stateVersion: 3,
     stateSchema: billingSchema,
     init: (): BillingState => ({ cost: 0, unpricedTokens: 0 }),
     apply: (state: BillingState, event: SessionEvent): BillingState => {

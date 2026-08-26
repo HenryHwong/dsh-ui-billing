@@ -28,7 +28,10 @@ export interface Config {
 }
 /** Loader schema; a missing field falls back to the shipped defaults. The
  * price table passes through `z.any()` because its nested shape is the
- * deployment's own (the fold reads it defensively). */
+ * deployment's own (the fold reads it defensively). The default peak windows
+ * are the official Beijing workday schedule (09:00-12:00, 14:00-18:00); the
+ * window model cannot exclude weekends, so deployments may clear `peakHours`
+ * to price everything off-peak. */
 export declare const Config: z<Config>;
 /**
  * Host plugin body: register the balance endpoint on the `/billing` channel

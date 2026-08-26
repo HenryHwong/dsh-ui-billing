@@ -27,19 +27,28 @@ export const inject = ['connection', 'settings']
 export const BALANCE_CHANNEL = '/billing'
 
 /**
- * Default CNY-per-million-token prices. The DeepSeek V3-era official rates
- * (deepseek-chat: ¥2/¥0.5/¥8, deepseek-reasoner: ¥4/¥1/¥16) are the verified
- * anchor; the V4 catalog mirrors them by tier (v4-pro at the reasoner rate,
- * v4-flash and its vision variant at the chat rate). Providing `config.prices`
- * replaces the whole table — prices are the deployment's responsibility and
- * must track the provider's current schedule (peak/off-peak windows included).
+ * Default CNY-per-million-token prices. The V4 catalog follows the official
+ * schedule as of the plugin release (off-peak rates, with the workday peak
+ * windows in `Config` doubling them); the deepseek-chat / deepseek-reasoner
+ * entries are the legacy V3 anchors kept for older usage records. Providing
+ * `config.prices` replaces the whole table — prices are the deployment's
+ * responsibility and must track the provider's current schedule.
  */
 const DEFAULT_PRICES: Record<string, TieredModelPrice> = {
   'deepseek-chat': { offPeak: { inputPerM: 2, cacheReadPerM: 0.5, outputPerM: 8 } },
   'deepseek-reasoner': { offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 } },
-  'deepseek-v4-flash': { offPeak: { inputPerM: 2, cacheReadPerM: 0.5, outputPerM: 8 } },
-  'deepseek-v4-pro': { offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 } },
-  'deepseek-v4-flash-vision-exp': { offPeak: { inputPerM: 2, cacheReadPerM: 0.5, outputPerM: 8 } },
+  'deepseek-v4-flash': {
+    offPeak: { inputPerM: 1.5, cacheReadPerM: 0.05, outputPerM: 4.5 },
+    peak: { inputPerM: 3, cacheReadPerM: 0.1, outputPerM: 9 },
+  },
+  'deepseek-v4-pro': {
+    offPeak: { inputPerM: 4.5, cacheReadPerM: 0.15, outputPerM: 13.5 },
+    peak: { inputPerM: 9, cacheReadPerM: 0.3, outputPerM: 27 },
+  },
+  'deepseek-v4-flash-vision-exp': {
+    offPeak: { inputPerM: 1.5, cacheReadPerM: 0.05, outputPerM: 4.5 },
+    peak: { inputPerM: 3, cacheReadPerM: 0.1, outputPerM: 9 },
+  },
 }
 
 /** Billing configuration as validated and defaulted by the Loader. */
@@ -54,10 +63,13 @@ export interface Config {
 
 /** Loader schema; a missing field falls back to the shipped defaults. The
  * price table passes through `z.any()` because its nested shape is the
- * deployment's own (the fold reads it defensively). */
+ * deployment's own (the fold reads it defensively). The default peak windows
+ * are the official Beijing workday schedule (09:00-12:00, 14:00-18:00); the
+ * window model cannot exclude weekends, so deployments may clear `peakHours`
+ * to price everything off-peak. */
 export const Config: z<Config> = z.object({
   prices: z.any().default(DEFAULT_PRICES),
-  peakHours: z.any().default([]),
+  peakHours: z.any().default([[540, 720], [840, 1080]]),
   utcOffsetMinutes: z.number().step(1).default(480),
 })
 

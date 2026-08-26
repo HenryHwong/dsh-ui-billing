@@ -17,17 +17,15 @@ Billing widget plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/
 
 ## Pricing
 
-The cost fold prices each usage-reporting step by its assembled message's `source.model` against the plugin's default CNY-per-million-token table:
+The cost fold prices each usage-reporting step by its assembled message's `source.model` against the plugin's default CNY-per-million-token table. The V4 catalog follows the current official schedule (cache-miss input / cache read / output, off-peak rates; the official peak windows are Beijing time Mon–Fri 09:00–12:00 and 14:00–18:00, doubling every field):
 
 | model | input (cache miss) | cache read | output |
 | --- | --- | --- | --- |
-| `deepseek-chat` | 2 | 0.5 | 8 |
-| `deepseek-reasoner` | 4 | 1 | 16 |
-| `deepseek-v4-flash` | 2 | 0.5 | 8 |
-| `deepseek-v4-pro` | 4 | 1 | 16 |
-| `deepseek-v4-flash-vision-exp` | 2 | 0.5 | 8 |
+| `deepseek-v4-flash` | 1.5 | 0.05 | 4.5 |
+| `deepseek-v4-pro` | 4.5 | 0.15 | 13.5 |
+| `deepseek-v4-flash-vision-exp` | 1.5 | 0.05 | 4.5 |
 
-The V3-era official rates (deepseek-chat / deepseek-reasoner) are the verified anchor; the V4 catalog mirrors them by tier. A model without an entry contributes its tokens to `unpricedTokens` instead of pretending they are free, so a GUI can say "cost" without pretending unknown-priced models are free. Peak-hour pricing is supported but off by default: set `peakHours` (windows in minutes since midnight of the price clock) and per-model `peak` tiers to enable it. Prices are the deployment's responsibility and must track the provider's current schedule — override the whole table with the plugin `config.prices`:
+`deepseek-chat` / `deepseek-reasoner` keep the V3-era anchors (2/0.5/8 and 4/1/16) to cover legacy usage records; the current API catalog is V4 only. A model without an entry contributes its tokens to `unpricedTokens` instead of pretending they are free, so a GUI can say "cost" without pretending unknown-priced models are free. Peak-hour pricing is on by default: `peakHours` defaults to the official windows `[[540, 720], [840, 1080]]` (minutes since midnight of the price clock) with `utcOffsetMinutes` 480 (Beijing). The window model cannot exclude weekends, so a deployment needing exact weekend off-peak pricing should clear `peakHours` or override it. Prices are the deployment's responsibility and must track the provider's current schedule — override the whole table with the plugin `config.prices`:
 
 ```yaml
 - id: ui-billing
@@ -35,8 +33,9 @@ The V3-era official rates (deepseek-chat / deepseek-reasoner) are the verified a
   config:
     prices:
       'deepseek-v4-pro':
-        offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 }
-    peakHours: [[570, 1080]]
+        offPeak: { inputPerM: 4.5, cacheReadPerM: 0.15, outputPerM: 13.5 }
+        peak: { inputPerM: 9, cacheReadPerM: 0.3, outputPerM: 27 }
+    peakHours: [[540, 720], [840, 1080]]
     utcOffsetMinutes: 480
 ```
 
@@ -124,7 +123,7 @@ The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; 
 ## Known Limitations and Deferred Work
 
 - The balance row shows the first provider route's balance when none is specified (`deepseek-official` is the default); multi-provider deployments cannot yet pick a route from the widget (the channel accepts `provider`, so a future selector is a client-only change).
-- The default price table is a static snapshot of the DeepSeek V3-era official CNY rates with the V4 catalog mirrored by tier. The deployment must override `config.prices` when its provider bills at different rates (including peak/off-peak schedules) — verify against the provider's current pricing page.
+- The default price table is a static snapshot of the current official V4 CNY schedule (including the Beijing workday peak windows). The deployment must override `config.prices` when the provider changes rates — verify against the provider's current pricing page.
 - A provider-billed reasoning surcharge is not modeled separately: the adapter reports `outputTokens` already including reasoning tokens, so only the four billed usage fields are priced.
 
 ## License

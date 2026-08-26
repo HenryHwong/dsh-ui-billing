@@ -17,17 +17,15 @@
 
 ## 计价
 
-费用折叠按每条 usage 步骤的 `source.model` 对照插件的默认 CNY/百万 token 价格表计价：
+费用折叠按每条 usage 步骤的 `source.model` 对照插件的默认 CNY/百万 token 价格表计价。V4 目录为官方现行价目表（缓存未命中 / 缓存读取 / 输出，均为空闲时段单价；官方高峰时段为北京时间周一至周五 09:00-12:00、14:00-18:00，各字段翻倍）：
 
 | 模型 | 输入（缓存未命中） | 缓存读取 | 输出 |
 | --- | --- | --- | --- |
-| `deepseek-chat` | 2 | 0.5 | 8 |
-| `deepseek-reasoner` | 4 | 1 | 16 |
-| `deepseek-v4-flash` | 2 | 0.5 | 8 |
-| `deepseek-v4-pro` | 4 | 1 | 16 |
-| `deepseek-v4-flash-vision-exp` | 2 | 0.5 | 8 |
+| `deepseek-v4-flash` | 1.5 | 0.05 | 4.5 |
+| `deepseek-v4-pro` | 4.5 | 0.15 | 13.5 |
+| `deepseek-v4-flash-vision-exp` | 1.5 | 0.05 | 4.5 |
 
-V3 时代的官方单价（deepseek-chat / deepseek-reasoner）是已验证的锚点；V4 目录按档位镜像。没有价格条目的模型，其 token 计入 `unpricedTokens` 而不是假装免费，这样 GUI 可以放心显示"费用"而无需假装未知定价的模型免费。峰谷计价受支持但默认关闭：设置 `peakHours`（以价格时钟的零点起算的分钟窗口）与各模型的 `peak` 档即可启用。价格是部署方的责任，必须跟随 provider 的现行价目表——用插件 `config.prices` 整体覆盖默认表：
+`deepseek-chat` / `deepseek-reasoner` 保留 V3 时代锚点（2/0.5/8 与 4/1/16）以覆盖旧 usage 记录；现行 API 目录只有 V4 模型。没有价格条目的模型，其 token 计入 `unpricedTokens` 而不是假装免费，这样 GUI 可以放心显示"费用"而无需假装未知定价的模型免费。峰谷计价默认开启：`peakHours` 默认是官方高峰窗口 `[[540, 720], [840, 1080]]`（价格时钟零点起算的分钟），`utcOffsetMinutes` 默认 480（北京时间）；时间窗模型无法排除周末，需要精确周末空闲价时清空 `peakHours` 或自行覆盖。价格是部署方的责任，必须跟随 provider 的现行价目表——用插件 `config.prices` 整体覆盖默认表：
 
 ```yaml
 - id: ui-billing
@@ -35,8 +33,9 @@ V3 时代的官方单价（deepseek-chat / deepseek-reasoner）是已验证的�
   config:
     prices:
       'deepseek-v4-pro':
-        offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 }
-    peakHours: [[570, 1080]]
+        offPeak: { inputPerM: 4.5, cacheReadPerM: 0.15, outputPerM: 13.5 }
+        peak: { inputPerM: 9, cacheReadPerM: 0.3, outputPerM: 27 }
+    peakHours: [[540, 720], [840, 1080]]
     utcOffsetMinutes: 480
 ```
 
@@ -124,7 +123,7 @@ pnpm build                   # tsc 产出 lib/types + tsdown 打包节点半端
 ## Known Limitations and Deferred Work
 
 - 未指定 provider 时余额行显示第一个 provider 路由的余额（默认 `deepseek-official`）；多 provider 部署暂不能从控件选择路由（通道已接受 `provider`，未来的选择器只是纯客户端改动）。
-- 默认价格表是 DeepSeek V3 时代官方 CNY 单价的静态快照，V4 目录按档位镜像。provider 按不同单价（含峰谷时段）计费时，部署方必须用 `config.prices` 覆盖——请对照 provider 现行价目表核对。
+- 默认价格表是官方现行 V4 价目表的静态快照（含北京工作日峰谷窗口）。provider 改价后，部署方必须用 `config.prices` 覆盖——请对照 provider 现行价目表核对。
 - 不单独建模 provider 的 reasoning 附加费：适配器报告的 `outputTokens` 已包含 reasoning token，因此只对四个计费字段计价。
 
 ## 许可
