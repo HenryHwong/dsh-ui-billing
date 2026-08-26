@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.host.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": [
+    "src/index.ts",
+    "src/balance.ts",
+    "src/invariant.ts",
+    "src/projection.ts"
+  ]
+}

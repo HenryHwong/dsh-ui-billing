@@ -2,7 +2,7 @@
 
 > **🌐 语言 / Language：** [English](README.md) · [**简体中文**](README.zh.md)
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI 的计费控件插件：侧边栏底部（`sidebar.footer.action`）的一个条目，显示当前选中对话的费用——来自 `billing` 会话投影——以及 provider 账户余额——来自 `/billing` 连接通道。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI 的计费控件插件：侧边栏底部（`sidebar.footer.action`）的一个条目，显示当前选中对话的费用——来自本插件注册的 `billing` 会话投影——以及 provider 账户余额——来自 `/billing` 连接通道。
 
 **GitHub 话题**：`dsh-plugin` · `deepseek-harness`
 
@@ -10,10 +10,37 @@
 
 ## 功能
 
-- **当前会话费用**。宽侧边栏渲染一行带标签的数值，显示所选对话的整篇日志计价费用（CNY）。切换会话即切换数值；分页与压缩不会改变它。含未计价 token 的会话在金额上显示 `(+N tokens unpriced)` 提示。
+- **当前会话费用**。节点半端把每条 `assistant/message` 的 usage 记录折叠进 `billing` 会话投影（整篇日志的 CNY 费用与未计价 token 数），按组合加载时捕获的价格表计价；宽侧边栏渲染一行带标签的数值显示所选对话的金额。切换会话即切换数值；分页与压缩不会改变它。含未计价 token 的会话在金额上显示 `(+N tokens unpriced)` 提示。
 - **实时 API 余额**。余额行通过 harness 自身的连接事实（合并的 `llm-deepseek` 设置 + 启动环境 + 凭据通道）读取 provider 账户，挂载期间每 60 秒刷新一次，连接重置后重读，也可通过行内刷新按钮手动刷新。
 - **折叠轨道字形**。侧边栏折叠时只渲染一个 ¥ 字形，提示气泡携带两行内容；点击即刷新余额。
 - **默认空闲**。没有订阅者挂载时不发起任何请求——余额轮询随第一个订阅者启动、随最后一个离开停止。
+
+## 计价
+
+费用折叠按每条 usage 步骤的 `source.model` 对照插件的默认 CNY/百万 token 价格表计价：
+
+| 模型 | 输入（缓存未命中） | 缓存读取 | 输出 |
+| --- | --- | --- | --- |
+| `deepseek-chat` | 2 | 0.5 | 8 |
+| `deepseek-reasoner` | 4 | 1 | 16 |
+| `deepseek-v4-flash` | 2 | 0.5 | 8 |
+| `deepseek-v4-pro` | 4 | 1 | 16 |
+| `deepseek-v4-flash-vision-exp` | 2 | 0.5 | 8 |
+
+V3 时代的官方单价（deepseek-chat / deepseek-reasoner）是已验证的锚点；V4 目录按档位镜像。没有价格条目的模型，其 token 计入 `unpricedTokens` 而不是假装免费，这样 GUI 可以放心显示"费用"而无需假装未知定价的模型免费。峰谷计价受支持但默认关闭：设置 `peakHours`（以价格时钟的零点起算的分钟窗口）与各模型的 `peak` 档即可启用。价格是部署方的责任，必须跟随 provider 的现行价目表——用插件 `config.prices` 整体覆盖默认表：
+
+```yaml
+- id: ui-billing
+  name: '@huanghanheng/dsh-ui-billing'
+  config:
+    prices:
+      'deepseek-v4-pro':
+        offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 }
+    peakHours: [[570, 1080]]
+    utcOffsetMinutes: 480
+```
+
+投影的 `stateVersion` 在折叠语义或默认价格表变化时升版，因此 harness 投影缓存会丢弃旧价格表折叠的行并整篇重算——历史对话总是按当前价格表一致地重计价。
 
 ## 安全
 
@@ -24,7 +51,7 @@
 ## 前置要求
 
 - DeepSeek Harness 检出（或已发布的 `@deepseek-ai/dsh-*` 包）为 `0.1.1-rc.2` 或更新版本，并运行 web profile。
-- **宿主 billing 投影**：费用行读取 `billing` 会话投影，由 harness 的 `@deepseek-ai/dsh-billing` 插件提供（随 harness 0.1.1 发布）。没有它插件仍可加载、余额行照常工作；费用行显示 `—`。
+- **投影注册表已组合**：费用行读取节点半端注册的 `billing` 投影，需要 harness 的会话投影缝（`@deepseek-ai/dsh-session-projection`，随 web-app bundle 提供）。没有它插件仍可加载、余额行照常工作；费用行显示 `—`。
 - **DeepSeek API key**：通过 harness 的凭据服务配置（web Models 页写入）或在启动环境中导出，即 `DEEPSEEK_API_KEY`（`llm-deepseek` 路由的默认 key 引用）。
 - 无需宿主插桩：控件注册的 `sidebar.footer.action` 座位随已发布的 `@deepseek-ai/dsh-client-ui-sidebar` 提供。
 
@@ -86,18 +113,19 @@ npm install @huanghanheng/dsh-ui-billing
 
 ```sh
 pnpm install
-pnpm vitest run tests/        # 单元测试（组件 + 响应式源，jsdom；节点半端，node）
+pnpm test                    # vitest：节点半端 + host 测试（投影折叠、余额读取、注册）
 pnpm exec tsc -p tsconfig.json        # 类型检查浏览器半端 + 客户端测试
 pnpm exec tsc -p tsconfig.host.json   # 类型检查节点半端 + host 测试
-pnpm bundle                   # tsdown 客户端打包（clientBundle 预设需要 harness 检出）
+pnpm build                   # tsc 产出 lib/types + tsdown 打包节点半端
 ```
 
-仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入在 harness 发布该包前由 `types/dsh-billing/client.d.ts` 镜像提供。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。测试覆盖余额读取（HTTP 归一化、凭据解析）、响应式源（投影跟随、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 runtime 的槽位服务。
+仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入在 harness 发布该包前由 `types/dsh-billing/client.d.ts` 镜像提供。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。测试覆盖投影折叠（计价辅助、峰谷窗口、未计价模型、注册接线）、余额读取（HTTP 归一化、凭据解析）、响应式源（投影跟随、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 runtime 的槽位服务。
 
 ## Known Limitations and Deferred Work
 
 - 未指定 provider 时余额行显示第一个 provider 路由的余额（默认 `deepseek-official`）；多 provider 部署暂不能从控件选择路由（通道已接受 `provider`，未来的选择器只是纯客户端改动）。
-- 费用按 `billing` 投影插件在组合加载时捕获的价格表计价；默认值与覆盖方式见该包 README。
+- 默认价格表是 DeepSeek V3 时代官方 CNY 单价的静态快照，V4 目录按档位镜像。provider 按不同单价（含峰谷时段）计费时，部署方必须用 `config.prices` 覆盖——请对照 provider 现行价目表核对。
+- 不单独建模 provider 的 reasoning 附加费：适配器报告的 `outputTokens` 已包含 reasoning token，因此只对四个计费字段计价。
 
 ## 许可
 

@@ -1,14 +1,15 @@
 /**
  * Vendored type-only mirror of `@deepseek-ai/dsh-billing/client` — the
- * `billing` session-projection type surface. The harness ships that host
- * package as `@deepseek-ai/dsh-billing` (packages/session/billing); until the
- * release lands on npm, this file stands in for the type-only import the
- * browser half makes (`BillingProjection`). Runtime code never sees it: the
- * import is erased at build, and the widget reads the projection face
- * dynamically through the runtime's projections outlet.
+ * `billing` session-projection type surface. The plugin's node half registers
+ * the projection itself (src/projection.ts), and the harness ships the host
+ * package as `@deepseek-ai/dsh-billing`; until that release lands on npm this
+ * file stands in for the type-only import the browser half makes
+ * (`BillingProjection`). Runtime code never sees it: the import is erased at
+ * build, and the widget reads the projection face dynamically through the
+ * runtime's projections outlet.
  *
- * Keep these interfaces in sync with packages/session/billing/src/types.ts
- * in the harness checkout.
+ * Keep these interfaces in sync with the projection's wire view
+ * (src/projection.ts in this repository).
  */
 
 /** Whole-log cost projection for one session, in CNY. */

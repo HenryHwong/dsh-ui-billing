@@ -17,7 +17,9 @@
     "src/index.ts",
     "src/balance.ts",
     "src/invariant.ts",
+    "src/projection.ts",
     "tests/apply.host.spec.ts",
-    "tests/balance.host.spec.ts"
+    "tests/balance.host.spec.ts",
+    "tests/projection.spec.ts"
   ]
 }
