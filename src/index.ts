@@ -11,12 +11,11 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
-// Type-only: pulls the connection package's host Context merge (ctx.connection).
-import type {} from '@deepseek-ai/dsh-client-connection'
 import { fetchBalance, resolveBalanceRequest } from './balance.ts'
 import { billingProjectionDefinition } from './projection.ts'
 import type { ResolvedBillingConfig, TieredModelPrice } from './projection.ts'
+import { registerRpcChannel } from './seams/connection.ts'
+import type { ConnectionRpcHandler } from './seams/connection.ts'
 
 /** Cordis plugin name. */
 export const name = 'ui-billing'
@@ -92,7 +91,7 @@ function resolveBillingConfig(config: Config | undefined): ResolvedBillingConfig
  * @param config - the deployment's price table and peak windows.
  */
 export function apply(ctx: Context, config?: Config): void {
-  const handler = async (endpoint: string, payload: unknown, signal: AbortSignal): Promise<RpcResult<unknown>> => {
+  const handler: ConnectionRpcHandler = async (endpoint, payload, signal) => {
     if (endpoint !== 'balance') {
       return {
         ok: false,
@@ -116,14 +115,7 @@ export function apply(ctx: Context, config?: Config): void {
       }
     }
   }
-  // The RPC route mounts on the shared webServer through the connection
-  // registry, whose handle resolves services by property access on its owning
-  // context. Register inside an explicit injection so those properties exist
-  // regardless of this entry's realm: static plugin `inject` cannot cross an
-  // isolate boundary, but ctx.inject always materializes the named services.
-  ctx.inject(['connection', 'webServer'], (webCtx) => {
-    webCtx.connection.rpc.handle(BALANCE_CHANNEL, handler, { authority: 'loopback' })
-  })
+  registerRpcChannel(ctx, BALANCE_CHANNEL, handler)
 
   const projections = ctx.get('sessionProjections')
   if (projections !== undefined) projections.register(billingProjectionDefinition(resolveBillingConfig(config)))

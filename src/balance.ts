@@ -13,12 +13,12 @@ import { getOrCreateAnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { assertUsableApiKey, attributionHeaders, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import {
   resolveAdapterOptions,
   type Config as DeepSeekProviderConfig,
   type WireError,
 } from '@deepseek-ai/dsh-llm-deepseek'
+import { settingsSection } from './seams/settings.ts'
 
 /** Wire payload of the DeepSeek balance endpoint. */
 export interface WireBalance {
@@ -65,9 +65,7 @@ function noKeyError(provider: string, ref: CredentialRef): LlmError {
  * @returns the request facts; rejects with `MISSING_CREDENTIAL` when no key resolves.
  */
 export async function resolveBalanceRequest(ctx: Context, provider: string): Promise<BalanceRequest> {
-  // The runtime settings service types namespace keys as a template literal on
-  // its public `get`; the branded assertion bridges the published peer types.
-  const raw = ctx.settings.get('llm-deepseek' as SettingsNamespace) as DeepSeekProviderConfig | undefined
+  const raw = settingsSection<DeepSeekProviderConfig>(ctx, 'llm-deepseek')
   const connection = resolveAdapterOptions(raw ?? {}, launchEnvironmentOf(ctx))
   const ref = connection.apiKeyEnv
   const credentials = ctx.get('credentials')

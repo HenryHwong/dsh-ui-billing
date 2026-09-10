@@ -9,7 +9,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { apply, Config, inject } from '../src/index.ts'
 import { billingProjectionDefinition, priceFor, usageCost, usageTokens } from '../src/projection.ts'
-import type { ResolvedBillingConfig, TieredModelPrice } from '../src/projection.ts'
+import type { BillingProjectionDefinition, ResolvedBillingConfig, TieredModelPrice } from '../src/projection.ts'
 
 const DEEPSEEK_CHAT: TieredModelPrice = { offPeak: { inputPerM: 2, cacheReadPerM: 0.5, outputPerM: 8 } }
 
@@ -39,9 +39,13 @@ function usageEvent(seq: number, model: string, usage: object, time = 0): Sessio
   } as unknown as SessionEvent
 }
 
+function emptyState(definition: BillingProjectionDefinition) {
+  return definition.init({} as never, 0 as never)
+}
+
 function fold(events: SessionEvent[], config: ResolvedBillingConfig = resolved()) {
   const definition = billingProjectionDefinition(config)
-  let state = definition.init()
+  let state = emptyState(definition)
   for (const event of events) state = definition.apply(state, event)
   return state
 }
@@ -116,7 +120,7 @@ describe('billing fold', () => {
 
   it('returns the same state reference for an uninteresting event', () => {
     const definition = billingProjectionDefinition(resolved())
-    const state = definition.init()
+    const state = emptyState(definition)
     expect(definition.apply(state, { type: 'turn/start', seq: 0, time: 0, data: {} } as unknown as SessionEvent))
       .toBe(state)
     expect(definition.apply(state, { type: 'assistant/message', seq: 0, time: 0, data: { turn: 1, step: 0, message: { role: 'assistant', content: [], source: { provider: 'p', model: 'mock' } } } } as unknown as SessionEvent))

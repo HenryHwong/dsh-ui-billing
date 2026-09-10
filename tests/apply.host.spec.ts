@@ -1,8 +1,9 @@
 /**
  * ui-billing node half on a real cordis Context with fake connection and
- * settings faces: apply registers the `/billing` balance channel under the
- * loopback authority, the handler answers `balance` with the provider read
- * and reports transport/provider failures as the error branch.
+ * settings faces: apply registers the `/billing` balance channel on the
+ * injected connection/webServer context, the handler answers `balance` with
+ * the provider read and reports transport/provider failures as the error
+ * branch.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -30,9 +31,9 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
 async function bench(options: { settingsSection?: object; fetchResult?: Response } = {}) {
   const ctx = new Context()
   context = ctx
-  let registered: { channel: string; handler: ConnectionRpcHandler; authority: string } | undefined
-  const handle = vi.fn((channel: string, handler: ConnectionRpcHandler, opts: { authority: string }) => {
-    registered = { channel, handler, authority: opts.authority }
+  let registered: { channel: string; handler: ConnectionRpcHandler } | undefined
+  const handle = vi.fn((channel: string, handler: ConnectionRpcHandler) => {
+    registered = { channel, handler }
     return async () => {}
   })
   ctx.provide('connection', { rpc: { handle } } as unknown as HostConnectionHandle)
@@ -57,10 +58,9 @@ async function bench(options: { settingsSection?: object; fetchResult?: Response
 }
 
 describe('ui-billing node half', () => {
-  it('registers the /billing channel for loopback', async () => {
+  it('registers the /billing channel', async () => {
     const { registered } = await bench()
     expect(registered?.channel).toBe(BALANCE_CHANNEL)
-    expect(registered?.authority).toBe('loopback')
   })
 
   it('answers balance with the provider read for the default route', async () => {
