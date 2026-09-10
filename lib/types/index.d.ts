@@ -13,7 +13,7 @@ import z from '@deepseek-ai/schemastery';
 import type { TieredModelPrice } from './projection.ts';
 /** Cordis plugin name. */
 export declare const name = "ui-billing";
-/** Required services: the connection RPC registry (balance channel) and settings (provider facts). */
+/** Required services: connection (RPC registry), settings (provider facts), and session projections are probed dynamically; webServer is injected at registration time. */
 export declare const inject: string[];
 /** The balance channel this plugin owns; the browser half calls `balance` on it. */
 export declare const BALANCE_CHANNEL = "/billing";

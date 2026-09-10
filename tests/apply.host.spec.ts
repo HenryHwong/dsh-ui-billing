@@ -36,6 +36,7 @@ async function bench(options: { settingsSection?: object; fetchResult?: Response
     return async () => {}
   })
   ctx.provide('connection', { rpc: { handle } } as unknown as HostConnectionHandle)
+  ctx.provide('webServer', {} as never)
   ctx.provide('settings', {
     get: () => options.settingsSection,
   } as unknown as SettingsProvider)
@@ -110,6 +111,7 @@ describe('ui-billing node half', () => {
         }),
       },
     } as unknown as HostConnectionHandle)
+    ctx.provide('webServer', {} as never)
     ctx.provide('settings', { get: () => ({}) } as unknown as SettingsProvider)
     ctx.provide('credentials', {
       resolve: async () => { throw 'boom' },
