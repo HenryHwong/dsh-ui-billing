@@ -17,13 +17,13 @@ Billing widget plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/
 
 ## Pricing
 
-The cost fold prices each usage-reporting step by its assembled message's `source.model` against the plugin's default CNY-per-million-token table. The V4 catalog follows the current official schedule (cache-miss input / cache read / output, off-peak rates; the official peak windows are Beijing time Mon–Fri 09:00–12:00 and 14:00–18:00, doubling every field):
+The cost fold prices each usage-reporting step by its assembled message's `source.model` against the plugin's default CNY-per-million-token table. The V4 catalog follows the current official schedule, the 2026-09-10 flash-series adjustment included (cache-miss input / cache read / output, off-peak rates; the official peak windows are Beijing time Mon–Fri 09:00–12:00 and 14:00–18:00, doubling every field):
 
 | model | input (cache miss) | cache read | output |
 | --- | --- | --- | --- |
-| `deepseek-v4-flash` | 1.5 | 0.05 | 4.5 |
+| `deepseek-v4-flash` | 1 | 0.02 | 4 |
 | `deepseek-v4-pro` | 4.5 | 0.15 | 13.5 |
-| `deepseek-v4-flash-vision-exp` | 1.5 | 0.05 | 4.5 |
+| `deepseek-v4-flash-vision-exp` | 1 | 0.02 | 4 |
 
 `deepseek-chat` / `deepseek-reasoner` keep the V3-era anchors (2/0.5/8 and 4/1/16) to cover legacy usage records; the current API catalog is V4 only. A model without an entry contributes its tokens to `unpricedTokens` instead of pretending they are free, so a GUI can say "cost" without pretending unknown-priced models are free. Peak-hour pricing is on by default: `peakHours` defaults to the official windows `[[540, 720], [840, 1080]]` (minutes since midnight of the price clock) with `utcOffsetMinutes` 480 (Beijing). The window model cannot exclude weekends, so a deployment needing exact weekend off-peak pricing should clear `peakHours` or override it. Prices are the deployment's responsibility and must track the provider's current schedule — override the whole table with the plugin `config.prices`:
 
