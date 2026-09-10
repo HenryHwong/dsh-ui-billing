@@ -7,10 +7,10 @@
  * its refresh loop when the first subscriber arrives and stops when the last
  * one leaves.
  */
-import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
-import type { ISessions } from '@deepseek-ai/dsh-client-runtime/client';
 import type { BillingProjection } from '@deepseek-ai/dsh-billing/client';
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots';
+import type { ClientConnectionRpc } from './seams/connection.ts';
+import type { CurrentSessionProjection } from './seams/sessions.ts';
 /** Cost of the currently selected session; undefined when none is selected or nothing is billed. */
 export type BillingCostSnapshot = BillingProjection | undefined;
 /** Account balance read state; `balance` rides the latest successful read while newer reads load. */
@@ -37,13 +37,13 @@ export interface BalanceSource extends HostObservable<BalanceSnapshot> {
 }
 /**
  * Follow the current session's `billing` projection. Selection changes rebind
- * the projection face; face changes re-read the snapshot. The runtime's
- * current-provide info is the single selection authority, so this source
- * subscribes to it and never to the list store.
- * @param sessions - the sessions service face.
+ * the projection face; face movement re-reads the snapshot. The sessions
+ * service owns selection, so this source follows the seam's selection feed
+ * instead of a list store of its own.
+ * @param projection - the current-session projection seam.
  * @returns the cost source.
  */
-export declare function createBillingCostSource(sessions: ISessions): BillingCostSource;
+export declare function createBillingCostSource(projection: CurrentSessionProjection): BillingCostSource;
 /**
  * Read the provider account balance through the `/billing` connection
  * channel. Subscribers start the refresh loop (immediate read + interval);

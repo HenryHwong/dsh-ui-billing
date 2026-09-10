@@ -8,10 +8,10 @@
  * one leaves.
  */
 
-import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
-import type { ISessions, SessionFace } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BillingProjection } from '@deepseek-ai/dsh-billing/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ClientConnectionRpc } from './seams/connection.ts'
+import type { CurrentSessionProjection } from './seams/sessions.ts'
 
 /**
  * The balance channel the node half registers. A protocol constant the
@@ -53,15 +53,14 @@ const BALANCE_REFRESH_MS = 60_000
 
 /**
  * Follow the current session's `billing` projection. Selection changes rebind
- * the projection face; face changes re-read the snapshot. The runtime's
- * current-provide info is the single selection authority, so this source
- * subscribes to it and never to the list store.
- * @param sessions - the sessions service face.
+ * the projection face; face movement re-reads the snapshot. The sessions
+ * service owns selection, so this source follows the seam's selection feed
+ * instead of a list store of its own.
+ * @param projection - the current-session projection seam.
  * @returns the cost source.
  */
-export function createBillingCostSource(sessions: ISessions): BillingCostSource {
-  let currentSession: SessionFace | undefined
-  let face: { getSnapshot(): unknown; subscribe(fn: () => void): () => void } | undefined
+export function createBillingCostSource(projection: CurrentSessionProjection): BillingCostSource {
+  let face: HostObservable<unknown> | undefined
   let unsubscribeFace: (() => void) | undefined
   let value: BillingProjection | undefined
   const listeners = new Set<() => void>()
@@ -70,32 +69,19 @@ export function createBillingCostSource(sessions: ISessions): BillingCostSource 
   }
 
   const sync = (): void => {
-    const info = sessions.currentProvideInfo.getSnapshot()
-    // The standard `session` hook face is the session binding itself
-    // (SessionFace: the conversation observable plus the projections outlet);
-    // absent without a selection (SessionMaybeProvideInfo keeps declared
-    // names present with undefined values).
-    const nextSession = info.hooks.session as SessionFace | undefined
-    if (nextSession === currentSession) {
-      if (face !== undefined) {
-        const next = face.getSnapshot() as BillingProjection | undefined
-        if (next !== value) {
-          value = next
-          notify()
-        }
-      }
-      return
+    const next = projection.face('billing')
+    if (next !== face) {
+      unsubscribeFace?.()
+      face = next
+      unsubscribeFace = face?.subscribe(sync)
     }
-    currentSession = nextSession
-    unsubscribeFace?.()
-    face = nextSession === undefined
-      ? undefined
-      : nextSession.projections.faceOf('billing')
-    value = face === undefined ? undefined : face.getSnapshot() as BillingProjection | undefined
-    unsubscribeFace = face?.subscribe(sync)
-    notify()
+    const nextValue = face?.getSnapshot() as BillingProjection | undefined
+    if (nextValue !== value) {
+      value = nextValue
+      notify()
+    }
   }
-  const unsubscribeCurrent = sessions.currentProvideInfo.subscribe(sync)
+  const unsubscribeCurrent = projection.subscribe(sync)
   sync()
   return {
     getSnapshot: () => value,

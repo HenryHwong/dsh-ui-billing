@@ -6,9 +6,9 @@
  * snapshot. Pure observable semantics — no render machinery.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
-import type { ISessions } from '@deepseek-ai/dsh-client-runtime/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ClientConnectionRpc } from '../src/client/seams/connection.ts'
+import type { CurrentSessionProjection } from '../src/client/seams/sessions.ts'
 import { createBalanceSource, createBillingCostSource } from '../src/client/sources.ts'
 import type { BalanceSnapshot } from '../src/client/sources.ts'
 
@@ -30,38 +30,21 @@ function faceOf<T>(initial: T | undefined): HostObservable<T | undefined> & { se
   }
 }
 
-/** One stub session binding: the standard `session` hook face plus projections. */
-function sessionOf(id: string, billing: HostObservable<unknown>) {
-  return {
-    sessionId: id,
-    projections: { faceOf: () => billing },
-  }
-}
-
-/** A stub sessions service whose current selection can be switched. */
-function sessionsOf(initial: { sessionId: string; billing: HostObservable<unknown> } | undefined) {
-  const sessions = new Map<string, ReturnType<typeof sessionOf>>()
-  let current: unknown = undefined
-  const bind = (spec: { sessionId: string; billing: HostObservable<unknown> } | undefined): unknown => (
-    spec === undefined
-      ? undefined
-      : sessions.get(spec.sessionId) ?? sessions.set(spec.sessionId, sessionOf(spec.sessionId, spec.billing)).get(spec.sessionId)
-  )
-  current = bind(initial)
+/** A stub current-session projection whose selected face can be switched. */
+function projectionOf(initial: HostObservable<unknown> | undefined) {
+  let face = initial
   const listeners = new Set<() => void>()
   return {
-    currentProvideInfo: {
-      getSnapshot: () => ({ hooks: { session: current } }),
-      subscribe: (fn: () => void) => {
-        listeners.add(fn)
-        return () => { listeners.delete(fn) }
-      },
+    subscribe: (fn: () => void) => {
+      listeners.add(fn)
+      return () => { listeners.delete(fn) }
     },
-    select(next: { sessionId: string; billing: HostObservable<unknown> } | undefined): void {
-      current = bind(next)
+    face: () => face,
+    select(next: HostObservable<unknown> | undefined): void {
+      face = next
       for (const fn of [...listeners]) fn()
     },
-  } as unknown as ISessions & { select(next: { sessionId: string; billing: HostObservable<unknown> } | undefined): void }
+  } as CurrentSessionProjection & { select(next: HostObservable<unknown> | undefined): void }
 }
 
 function rpcOf(balance: { ok: true; value: { balance: NonNullable<BalanceSnapshot['balance']> } } | { ok: false; error: { message: string } }) {
@@ -73,17 +56,17 @@ describe('createBillingCostSource', () => {
   it('follows the current session billing projection and selection changes', () => {
     const billingA = faceOf({ cost: 1.5, unpricedTokens: 0 })
     const billingB = faceOf({ cost: 2.5, unpricedTokens: 0 })
-    const sessions = sessionsOf({ sessionId: 'a', billing: billingA })
-    const source = createBillingCostSource(sessions)
+    const projection = projectionOf(billingA)
+    const source = createBillingCostSource(projection)
 
     expect(source.getSnapshot()).toEqual({ cost: 1.5, unpricedTokens: 0 })
     billingA.set({ cost: 3.0, unpricedTokens: 0 })
     expect(source.getSnapshot()).toEqual({ cost: 3.0, unpricedTokens: 0 })
 
-    sessions.select({ sessionId: 'b', billing: billingB })
+    projection.select(billingB)
     expect(source.getSnapshot()).toEqual({ cost: 2.5, unpricedTokens: 0 })
 
-    sessions.select(undefined)
+    projection.select(undefined)
     expect(source.getSnapshot()).toBeUndefined()
 
     source.dispose()
@@ -91,8 +74,8 @@ describe('createBillingCostSource', () => {
 
   it('notifies subscribers on projection and selection movement', () => {
     const billing = faceOf<unknown>({ cost: 1, unpricedTokens: 0 })
-    const sessions = sessionsOf({ sessionId: 'a', billing })
-    const source = createBillingCostSource(sessions)
+    const projection = projectionOf(billing)
+    const source = createBillingCostSource(projection)
     const onNext = vi.fn()
     source.subscribe(onNext)
 
@@ -105,8 +88,8 @@ describe('createBillingCostSource', () => {
 
   it('stops notifying after its subscriber unsubscribes', () => {
     const billing = faceOf<unknown>({ cost: 1, unpricedTokens: 0 })
-    const sessions = sessionsOf({ sessionId: 'a', billing })
-    const source = createBillingCostSource(sessions)
+    const projection = projectionOf(billing)
+    const source = createBillingCostSource(projection)
     const onNext = vi.fn()
     const unsubscribe = source.subscribe(onNext)
     billing.set({ cost: 2, unpricedTokens: 0 })
@@ -118,22 +101,22 @@ describe('createBillingCostSource', () => {
 
   it('keeps the value silent when the same session is re-selected', () => {
     const billing = faceOf({ cost: 1.5, unpricedTokens: 0 })
-    const sessions = sessionsOf({ sessionId: 'a', billing })
-    const source = createBillingCostSource(sessions)
+    const projection = projectionOf(billing)
+    const source = createBillingCostSource(projection)
     const onNext = vi.fn()
     source.subscribe(onNext)
     expect(source.getSnapshot()).toEqual({ cost: 1.5, unpricedTokens: 0 })
     // Re-selecting the same session re-reads the face but must not re-emit
     // (Object.is gate on the unchanged snapshot).
-    sessions.select({ sessionId: 'a', billing })
+    projection.select(billing)
     expect(onNext).toHaveBeenCalledTimes(0)
     source.dispose()
   })
 
   it('disposes the projection-face subscription while it is live', () => {
     const billing = faceOf({ cost: 1, unpricedTokens: 0 })
-    const sessions = sessionsOf({ sessionId: 'a', billing })
-    const source = createBillingCostSource(sessions)
+    const projection = projectionOf(billing)
+    const source = createBillingCostSource(projection)
     source.subscribe(() => {})
     source.dispose()
     // The face is unsubscribed: a later movement no longer notifies anyone.

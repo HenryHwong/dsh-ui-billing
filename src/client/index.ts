@@ -6,10 +6,13 @@
  * cost source follows the current-session projection face, and the balance
  * source polls while mounted.
  */
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Type-only: pulls the sessions service's Context merge (ctx.sessions).
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the renderer's slots service merge (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.footer.action'
 // entry the widget registers into).
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -17,6 +20,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-billing/client'
 import { BillingFooter } from './BillingFooter.tsx'
 import { en, zh, type BillingKey } from './locales.ts'
+import type { ConnectionHandle } from './seams/connection.ts'
+import { currentSessionProjection } from './seams/sessions.ts'
 import { createBalanceSource, createBillingCostSource } from './sources.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -40,7 +45,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-billing: dictionaries')
 
   const handle = ctx.get('connection') as ConnectionHandle
-  const costSource = createBillingCostSource(ctx.sessions)
+  const costSource = createBillingCostSource(currentSessionProjection(ctx.sessions))
   const balanceSource = createBalanceSource(handle.rpc)
   // The account read is transport-owned: a reconnect invalidates a stale
   // balance, so re-read once the link is back (same lane as

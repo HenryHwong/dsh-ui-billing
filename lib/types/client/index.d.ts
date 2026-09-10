@@ -1,4 +1,12 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client';
+/**
+ * Billing surface plugin, browser half: one widget at the sidebar foot
+ * showing the currently selected conversation's cost (from the `billing`
+ * session projection) and the provider account balance (from the `/billing`
+ * connection channel). The widget owns no store and no event listener: the
+ * cost source follows the current-session projection face, and the balance
+ * source polls while mounted.
+ */
+import type { Context as ClientContext } from '@deepseek-ai/cordis';
 import { type BillingKey } from './locales.ts';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {

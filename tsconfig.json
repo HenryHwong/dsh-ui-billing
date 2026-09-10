@@ -19,6 +19,7 @@
     "src/client/**/*.tsx",
     "src/css-modules.d.ts",
     "tests/BillingFooter.client.spec.tsx",
+    "tests/seams.client.spec.ts",
     "tests/sources.client.spec.ts"
   ]
 }
