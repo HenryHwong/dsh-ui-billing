@@ -10,15 +10,8 @@
 
 import type { BillingProjection } from '@deepseek-ai/dsh-billing/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ClientConnectionRpc } from './seams/connection.ts'
+import type { BalanceRead, ProviderBalance } from './seams/connection.ts'
 import type { CurrentSessionProjection } from './seams/sessions.ts'
-
-/**
- * The balance channel the node half registers. A protocol constant the
- * browser half cannot import from the node half (client bundle purity), so
- * both halves keep the same literal.
- */
-const BALANCE_CHANNEL = '/billing'
 
 /** Cost of the currently selected session; undefined when none is selected or nothing is billed. */
 export type BillingCostSnapshot = BillingProjection | undefined
@@ -26,12 +19,7 @@ export type BillingCostSnapshot = BillingProjection | undefined
 /** Account balance read state; `balance` rides the latest successful read while newer reads load. */
 export interface BalanceSnapshot {
   status: 'idle' | 'loading' | 'ok' | 'error'
-  balance?: {
-    currency: string
-    totalBalance: number
-    grantedBalance?: number
-    toppedUpBalance?: number
-  }
+  balance?: ProviderBalance
   /** Provider or transport error message from the last failed read. */
   error?: string
 }
@@ -103,7 +91,7 @@ export function createBillingCostSource(projection: CurrentSessionProjection): B
  * @param rpc - the connection's generic channel caller.
  * @returns the balance source.
  */
-export function createBalanceSource(rpc: ClientConnectionRpc): BalanceSource {
+export function createBalanceSource(read: () => Promise<BalanceRead>): BalanceSource {
   let snapshot: BalanceSnapshot = { status: 'idle' }
   let inflight: Promise<void> | undefined
   let timer: ReturnType<typeof setInterval> | undefined
@@ -118,15 +106,10 @@ export function createBalanceSource(rpc: ClientConnectionRpc): BalanceSource {
     notify()
     inflight = (async () => {
       try {
-        const response = await rpc.call(BALANCE_CHANNEL, 'balance', {})
-        if (response.ok) {
-          const value = response.value as { balance?: BalanceSnapshot['balance'] } | undefined
-          snapshot = value?.balance === undefined
-            ? { status: 'ok' }
-            : { status: 'ok', balance: value.balance }
-        } else {
-          snapshot = { status: 'error', error: response.error.message }
-        }
+        const result = await read()
+        snapshot = result.ok
+          ? result.balance === undefined ? { status: 'ok' } : { status: 'ok', balance: result.balance }
+          : { status: 'error', error: result.error }
       } catch (error: unknown) {
         snapshot = { status: 'error', error: error instanceof Error ? error.message : String(error) }
       }

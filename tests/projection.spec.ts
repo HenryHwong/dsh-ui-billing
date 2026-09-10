@@ -132,7 +132,7 @@ describe('plugin registration', () => {
   it('registers the billing unit when the composition mounts the projection registry', async () => {
     const register = vi.fn((definition: { key: string; stateVersion: number }) => () => {})
     const ctx = new Context()
-    ctx.provide('connection', { rpc: { handle: vi.fn(() => async () => {}) } } as never)
+    ctx.provide('connection', { fetch: { register: vi.fn(() => () => {}) } } as never)
     ctx.provide('settings', { get: () => ({}) } as never)
     ctx.provide('sessionProjections', { register } as never)
     const fiber = ctx.plugin({ inject, apply })

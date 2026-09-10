@@ -2,7 +2,7 @@
 
 > **🌐 Language / 语言：** [**English**](README.md) · [简体中文](README.zh.md)
 
-Billing widget plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI: one entry at the sidebar foot showing the currently selected conversation's cost — from the `billing` session projection this plugin registers — and the provider account balance — from the `/billing` connection channel.
+Billing widget plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI: one entry at the sidebar foot showing the currently selected conversation's cost — from the `billing` session projection this plugin registers — and the provider account balance — from the node half's `/api/billing.balance` endpoint.
 
 **GitHub topics**: `dsh-plugin` · `deepseek-harness`
 
@@ -43,7 +43,7 @@ The projection's `stateVersion` is bumped whenever the fold semantics or default
 
 ## Security
 
-- **Display only.** The widget renders facts already present in the session projection or the provider account. It never produces a model-visible input, never writes the session log, and emits no new RPCs beyond the read-only `/billing` balance channel the node half registers on the harness connection transport, whose Host/Origin trust fence admits loopback by default.
+- **Display only.** The widget renders facts already present in the session projection or the provider account. It never produces a model-visible input, never writes the session log, and emits no new RPCs beyond the read-only `/api/billing.balance` endpoint the node half registers on the harness connection transport, whose Host/Origin trust fence admits loopback by default.
 - **Model Experience**: nothing reaches a model request; token effect none; KV-cache effect none.
 - **Credentials stay host-side.** The API key is resolved by the host half through the harness's credentials service or launch environment — the same seam the DeepSeek provider adapter uses — and never enters the browser bundle.
 
@@ -98,7 +98,7 @@ Or simply run `dsh plugin --profile web add @huanghanheng/dsh-ui-billing`, which
 
 #### What the model sees
 
-Nothing. The widget reads the `billing` projection and the `/billing` balance channel — both display-only surfaces over data already in the session log or the provider account.
+Nothing. The widget reads the `billing` projection and the `/api/billing.balance` endpoint — both display-only surfaces over data already in the session log or the provider account.
 
 #### Token effect
 

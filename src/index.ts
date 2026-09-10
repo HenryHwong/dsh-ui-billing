@@ -2,7 +2,7 @@
  * Billing surface plugin, node half: registers the `billing` session
  * projection (whole-log CNY cost against the price table captured at
  * composition load) and serves the provider account balance to the browser
- * half over the `/billing` connection RPC channel. The browser half ships via
+ * half over the `/api/billing.balance` endpoint. The browser half ships via
  * exports["./client"], discovered through the package.json `dsh.client`
  * declaration.
  *
@@ -11,19 +11,22 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import { fetchBalance, resolveBalanceRequest } from './balance.ts'
 import { billingProjectionDefinition } from './projection.ts'
 import type { ResolvedBillingConfig, TieredModelPrice } from './projection.ts'
-import { registerRpcChannel } from './seams/connection.ts'
-import type { ConnectionRpcHandler } from './seams/connection.ts'
+import { registerPostEndpoint } from './seams/connection.ts'
 
 /** Cordis plugin name. */
 export const name = 'ui-billing'
-/** Required services: connection (RPC registry), settings (provider facts), and session projections are probed dynamically; webServer is injected at registration time. */
+/** Required services: connection (endpoint transport) and settings (provider facts); session projections are probed dynamically. */
 export const inject = ['connection', 'settings']
 
-/** The balance channel this plugin owns; the browser half calls `balance` on it. */
-export const BALANCE_CHANNEL = '/billing'
+/** The balance endpoint this plugin owns; the browser half fetches the same literal. */
+export const BALANCE_PATH = '/api/billing.balance'
+
+/** Provider route read when a request names none. */
+const DEFAULT_PROVIDER = 'deepseek-official'
 
 /**
  * Default CNY-per-million-token prices. The V4 catalog follows the official
@@ -82,40 +85,53 @@ function resolveBillingConfig(config: Config | undefined): ResolvedBillingConfig
   }
 }
 
+/** JSON response carrying `body` at `status`. */
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+}
+
+/** The provider route one request names; an absent or malformed body selects the default route. */
+async function requestedProvider(request: Request): Promise<string> {
+  try {
+    const body = await request.json() as { provider?: unknown }
+    return typeof body.provider === 'string' && body.provider.length > 0 ? body.provider : DEFAULT_PROVIDER
+  } catch {
+    return DEFAULT_PROVIDER
+  }
+}
+
+/** HTTP status for one failed read; provider codes keep their transport meaning. */
+function errorStatus(error: unknown): number {
+  const code = error instanceof LlmError ? error.code : undefined
+  if (code === 'MISSING_CREDENTIAL' || code === 'AUTH') return 401
+  if (code === QUOTA_EXCEEDED_CODE || code === 'RATE_LIMIT') return 429
+  if (code === 'INVALID_REQUEST') return 400
+  return 502
+}
+
 /**
- * Host plugin body: register the balance endpoint on the `/billing` channel
- * and, when the composition mounts the projection registry, the `billing`
- * cost unit (its registration is an effect on this fiber, so unloading
- * removes the key).
+ * Host plugin body: register the balance endpoint and, when the composition
+ * mounts the projection registry, the `billing` cost unit (its registration is
+ * an effect on this fiber, so unloading removes the key).
  * @param ctx - registrant context carrying the connection and settings services.
  * @param config - the deployment's price table and peak windows.
  */
 export function apply(ctx: Context, config?: Config): void {
-  const handler: ConnectionRpcHandler = async (endpoint, payload, signal) => {
-    if (endpoint !== 'balance') {
-      return {
-        ok: false,
-        error: { code: 'internal', message: `ui-billing: unknown endpoint "${endpoint}"`, details: {} },
-      }
-    }
-    const candidate = (payload as { provider?: unknown } | undefined)?.provider
-    const provider = typeof candidate === 'string' && candidate.length > 0 ? candidate : 'deepseek-official'
+  const endpoint = async (request: Request): Promise<Response> => {
+    const provider = await requestedProvider(request)
     try {
-      const request = await resolveBalanceRequest(ctx, provider)
-      const balance = await fetchBalance(request, signal)
-      return { ok: true, value: { balance } }
+      const balance = await fetchBalance(await resolveBalanceRequest(ctx, provider), request.signal)
+      return jsonResponse(200, { balance })
     } catch (error: unknown) {
-      return {
-        ok: false,
+      return jsonResponse(errorStatus(error), {
         error: {
-          code: 'internal',
+          code: error instanceof LlmError ? error.code : 'internal',
           message: error instanceof Error ? error.message : String(error),
-          details: { provider },
         },
-      }
+      })
     }
   }
-  registerRpcChannel(ctx, BALANCE_CHANNEL, handler)
+  registerPostEndpoint(ctx, BALANCE_PATH, endpoint)
 
   const projections = ctx.get('sessionProjections')
   if (projections !== undefined) projections.register(billingProjectionDefinition(resolveBillingConfig(config)))

@@ -1,13 +1,14 @@
 /**
- * The widget's two observable sources: the cost source follows the
- * current-session projection face across selection changes, and the balance
- * source reads the `/billing` connection channel on first subscribe, polls
- * on an interval while subscribers remain, and reports failures as an error
- * snapshot. Pure observable semantics — no render machinery.
+ * The widget's two observable sources plus the balance transport seam: the cost
+ * source follows the current-session projection face across selection changes,
+ * and the balance source reads the node half's endpoint on first subscribe,
+ * polls on an interval while subscribers remain, and reports failures as an
+ * error snapshot. Pure observable semantics — no render machinery.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ClientConnectionRpc } from '../src/client/seams/connection.ts'
+import { readProviderBalance } from '../src/client/seams/connection.ts'
+import type { BalanceRead } from '../src/client/seams/connection.ts'
 import type { CurrentSessionProjection } from '../src/client/seams/sessions.ts'
 import { createBalanceSource, createBillingCostSource } from '../src/client/sources.ts'
 import type { BalanceSnapshot } from '../src/client/sources.ts'
@@ -47,9 +48,10 @@ function projectionOf(initial: HostObservable<unknown> | undefined) {
   } as CurrentSessionProjection & { select(next: HostObservable<unknown> | undefined): void }
 }
 
-function rpcOf(balance: { ok: true; value: { balance: NonNullable<BalanceSnapshot['balance']> } } | { ok: false; error: { message: string } }) {
-  const call = vi.fn().mockResolvedValue(balance)
-  return { call, calls: call } as unknown as ClientConnectionRpc & { calls: ReturnType<typeof vi.fn> }
+/** A stub reader answering every balance read with one fixed outcome. */
+function readerOf(result: BalanceRead) {
+  const read = vi.fn().mockResolvedValue(result)
+  return { read, calls: read }
 }
 
 describe('createBillingCostSource', () => {
@@ -130,8 +132,8 @@ describe('createBalanceSource', () => {
   afterEach(() => { vi.useRealTimers() })
 
   it('reads immediately on first subscribe and polls while mounted', async () => {
-    const api = rpcOf({ ok: true, value: { balance: { currency: 'CNY', totalBalance: 110 } } })
-    const source = createBalanceSource(api)
+    const api = readerOf({ ok: true, balance: { currency: 'CNY', totalBalance: 110 } })
+    const source = createBalanceSource(api.read)
     const values: BalanceSnapshot[] = []
     source.subscribe((() => { values.push(source.getSnapshot()) }))
     await vi.advanceTimersByTimeAsync(0)
@@ -144,8 +146,8 @@ describe('createBalanceSource', () => {
   })
 
   it('stops polling when the last subscriber leaves', async () => {
-    const api = rpcOf({ ok: true, value: { balance: { currency: 'CNY', totalBalance: 1 } } })
-    const source = createBalanceSource(api)
+    const api = readerOf({ ok: true, balance: { currency: 'CNY', totalBalance: 1 } })
+    const source = createBalanceSource(api.read)
     const unsubscribe = source.subscribe(() => {})
     await vi.advanceTimersByTimeAsync(0)
     unsubscribe()
@@ -155,14 +157,10 @@ describe('createBalanceSource', () => {
 
   it('surfaces provider errors and keeps the last good value while reloading', async () => {
     let mode: 'ok' | 'error' = 'ok'
-    const api = {
-      call: vi.fn().mockImplementation(() => Promise.resolve(
-        mode === 'ok'
-          ? { ok: true as const, value: { balance: { currency: 'CNY', totalBalance: 5 } } }
-          : { ok: false as const, error: { message: 'no balance surface', code: 'balance-unavailable', details: { provider: 'p' } } },
-      )),
-    } as unknown as ClientConnectionRpc
-    const source = createBalanceSource(api)
+    const read = vi.fn(async (): Promise<BalanceRead> => (mode === 'ok'
+      ? { ok: true, balance: { currency: 'CNY', totalBalance: 5 } }
+      : { ok: false, error: 'no balance surface' }))
+    const source = createBalanceSource(read)
     source.subscribe(() => {})
     await vi.advanceTimersByTimeAsync(0)
     expect(source.getSnapshot()).toMatchObject({ status: 'ok' })
@@ -173,45 +171,39 @@ describe('createBalanceSource', () => {
   })
 
   it('collapses concurrent manual refreshes into one read', async () => {
-    let resolveRead: (() => void) | undefined
-    const balanceMock = vi.fn(() => new Promise((resolve) => {
-      resolveRead = () => { resolve({ ok: true as const, value: { balance: { currency: 'CNY', totalBalance: 9 } } }) }
-    }))
-    const api = { call: balanceMock } as unknown as ClientConnectionRpc
-    const source = createBalanceSource(api)
+    let resolveRead: ((result: BalanceRead) => void) | undefined
+    const read = vi.fn(() => new Promise<BalanceRead>((resolve) => { resolveRead = resolve }))
+    const source = createBalanceSource(read)
     const first = source.refresh()
     const second = source.refresh()
-    expect(balanceMock).toHaveBeenCalledTimes(1)
-    resolveRead?.()
+    expect(read).toHaveBeenCalledTimes(1)
+    resolveRead?.({ ok: true, balance: { currency: 'CNY', totalBalance: 9 } })
     await first
     await second
     expect(source.getSnapshot()).toMatchObject({ status: 'ok', balance: { totalBalance: 9 } })
   })
 
   it('treats an ok result without a balance field as ok with no balance', async () => {
-    const api = { call: vi.fn().mockResolvedValue({ ok: true as const, value: {} }) } as unknown as ClientConnectionRpc
-    const source = createBalanceSource(api)
+    const source = createBalanceSource(async () => ({ ok: true }))
     await source.refresh()
     expect(source.getSnapshot()).toEqual({ status: 'ok' })
   })
 
   it('surfaces a rejected read as an error snapshot', async () => {
-    const api = { call: vi.fn().mockRejectedValue(new Error('transport down')) } as unknown as ClientConnectionRpc
-    const source = createBalanceSource(api)
+    const source = createBalanceSource(vi.fn().mockRejectedValue(new Error('transport down')))
     await source.refresh()
     expect(source.getSnapshot()).toEqual({ status: 'error', error: 'transport down' })
   })
 
   it('stringifies a non-Error rejection', async () => {
-    const api = { call: vi.fn().mockRejectedValue('boom') } as unknown as ClientConnectionRpc
-    const source = createBalanceSource(api)
+    const source = createBalanceSource(vi.fn().mockRejectedValue('boom'))
     await source.refresh()
     expect(source.getSnapshot()).toEqual({ status: 'error', error: 'boom' })
   })
 
   it('keeps polling while any subscriber remains', async () => {
-    const api = rpcOf({ ok: true, value: { balance: { currency: 'CNY', totalBalance: 3 } } })
-    const source = createBalanceSource(api)
+    const api = readerOf({ ok: true, balance: { currency: 'CNY', totalBalance: 3 } })
+    const source = createBalanceSource(api.read)
     const first = source.subscribe(() => {})
     const second = source.subscribe(() => {})
     await vi.advanceTimersByTimeAsync(0)
@@ -222,13 +214,57 @@ describe('createBalanceSource', () => {
   })
 
   it('tolerates a repeated unsubscribe of the last subscriber', async () => {
-    const api = rpcOf({ ok: true, value: { balance: { currency: 'CNY', totalBalance: 3 } } })
-    const source = createBalanceSource(api)
+    const api = readerOf({ ok: true, balance: { currency: 'CNY', totalBalance: 3 } })
+    const source = createBalanceSource(api.read)
     const unsubscribe = source.subscribe(() => {})
     await vi.advanceTimersByTimeAsync(0)
     unsubscribe()
     unsubscribe()
     await vi.advanceTimersByTimeAsync(120_000)
     expect(api.calls).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('readProviderBalance', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('POSTs to the node half endpoint and returns the reported account', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ balance: { currency: 'CNY', totalBalance: 5 } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(readProviderBalance()).resolves.toEqual({
+      ok: true,
+      balance: { currency: 'CNY', totalBalance: 5 },
+    })
+    expect(fetchMock).toHaveBeenCalledWith('/api/billing.balance', { method: 'POST' })
+  })
+
+  it('reads an ok response without a balance as the no-account outcome', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })))
+    await expect(readProviderBalance()).resolves.toEqual({ ok: true })
+  })
+
+  it('reports the endpoint error message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ error: { code: 'AUTH', message: 'bad key' } }),
+      { status: 401 },
+    )))
+    await expect(readProviderBalance()).resolves.toEqual({ ok: false, error: 'bad key' })
+  })
+
+  it('falls back to the HTTP status when the error body is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 502 })))
+    await expect(readProviderBalance()).resolves.toEqual({
+      ok: false,
+      error: 'ui-billing: balance read failed (HTTP 502)',
+    })
+  })
+
+  it('folds a transport rejection into the failure branch', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    await expect(readProviderBalance()).resolves.toEqual({ ok: false, error: 'network down' })
   })
 })

@@ -1,16 +1,14 @@
 /**
  * ui-billing node half on a real cordis Context with fake connection and
- * settings faces: apply registers the `/billing` balance channel on the
- * injected connection/webServer context, the handler answers `balance` with
- * the provider read and reports transport/provider failures as the error
- * branch.
+ * settings faces: apply registers the `/api/billing.balance` endpoint on the
+ * connection fetch registry, the endpoint answers with the provider read, and
+ * transport/provider failures become non-2xx JSON errors.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
-import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
+import type { ConnectionFetchRoute, HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
-import { BALANCE_CHANNEL, apply, inject } from '../src/index.ts'
+import { BALANCE_PATH, apply, inject } from '../src/index.ts'
 
 let context: Context | undefined
 
@@ -28,20 +26,26 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
   } as unknown as Response
 }
 
-async function bench(options: { settingsSection?: object; fetchResult?: Response } = {}) {
+function balanceRequest(body?: string): Request {
+  return new Request(`http://127.0.0.1${BALANCE_PATH}`, {
+    method: 'POST',
+    ...(body === undefined ? {} : { body }),
+  })
+}
+
+async function bench(options: { settingsSection?: object; credentials?: object; fetchResult?: Response } = {}) {
   const ctx = new Context()
   context = ctx
-  let registered: { channel: string; handler: ConnectionRpcHandler } | undefined
-  const handle = vi.fn((channel: string, handler: ConnectionRpcHandler) => {
-    registered = { channel, handler }
-    return async () => {}
+  let registered: ConnectionFetchRoute | undefined
+  const register = vi.fn((route: ConnectionFetchRoute) => {
+    registered = route
+    return () => {}
   })
-  ctx.provide('connection', { rpc: { handle } } as unknown as HostConnectionHandle)
-  ctx.provide('webServer', {} as never)
+  ctx.provide('connection', { fetch: { register } } as unknown as HostConnectionHandle)
   ctx.provide('settings', {
     get: () => options.settingsSection,
   } as unknown as SettingsProvider)
-  ctx.provide('credentials', {
+  ctx.provide('credentials', options.credentials ?? {
     resolve: async () => ({ value: 'sk-test' }),
   } as never)
   if (options.fetchResult !== undefined) {
@@ -54,74 +58,67 @@ async function bench(options: { settingsSection?: object; fetchResult?: Response
 
   const fiber = ctx.plugin({ inject, apply })
   await fiber.await()
-  return { ctx, fiber, registered, handle }
+  return { ctx, fiber, registered, register }
 }
 
 describe('ui-billing node half', () => {
-  it('registers the /billing channel', async () => {
+  it('registers the balance endpoint as an exact POST route', async () => {
     const { registered } = await bench()
-    expect(registered?.channel).toBe(BALANCE_CHANNEL)
+    expect(registered?.path).toBe(BALANCE_PATH)
+    expect(registered?.methods).toEqual(['POST'])
+    expect(registered?.requestBody).toBe('buffered')
   })
 
   it('answers balance with the provider read for the default route', async () => {
     const { registered } = await bench({ settingsSection: {} })
-    const result = await registered!.handler('balance', {}, new AbortController().signal)
-    expect(result).toEqual({
-      ok: true,
-      value: { balance: { provider: 'deepseek-official', currency: 'CNY', totalBalance: 42 } },
+    const response = await registered!.fetch(balanceRequest())
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      balance: { provider: 'deepseek-official', currency: 'CNY', totalBalance: 42 },
     })
   })
 
-  it('honors a requested provider in the payload', async () => {
+  it('honors a requested provider in the body', async () => {
     const { registered } = await bench()
-    const result = await registered!.handler('balance', { provider: 'deepseek-official' }, new AbortController().signal)
-    expect(result).toMatchObject({ ok: true })
+    const response = await registered!.fetch(balanceRequest(JSON.stringify({ provider: 'deepseek-official' })))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ balance: { provider: 'deepseek-official' } })
   })
 
-  it('reports an unknown endpoint as an error', async () => {
-    const { registered } = await bench()
-    const result = await registered!.handler('nope', {}, new AbortController().signal)
-    expect(result).toMatchObject({
-      ok: false,
-      error: { message: 'ui-billing: unknown endpoint "nope"' },
-    })
+  it('reads the default route when the body is absent or malformed', async () => {
+    const { registered } = await bench({ settingsSection: {} })
+    expect(await (await registered!.fetch(balanceRequest())).json())
+      .toMatchObject({ balance: { provider: 'deepseek-official' } })
+    expect(await (await registered!.fetch(balanceRequest('not json'))).json())
+      .toMatchObject({ balance: { provider: 'deepseek-official' } })
   })
 
-  it('reports provider failures as the error branch', async () => {
+  it('reports provider failures as a non-2xx JSON error', async () => {
     const { registered } = await bench({
       settingsSection: {},
       fetchResult: jsonResponse({ error: { message: 'bad key' } }, false, 401),
     })
-    const result = await registered!.handler('balance', {}, new AbortController().signal)
-    expect(result).toMatchObject({
-      ok: false,
-      error: { message: 'bad key' },
+    const response = await registered!.fetch(balanceRequest())
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: { code: 'AUTH', message: 'bad key' } })
+  })
+
+  it('reports a missing credential as unauthorized', async () => {
+    const { registered } = await bench({
+      credentials: { resolve: async () => undefined } as never,
     })
+    const response = await registered!.fetch(balanceRequest())
+    expect(response.status).toBe(401)
+    expect(await response.json()).toMatchObject({ error: { code: 'MISSING_CREDENTIAL' } })
   })
 
   it('stringifies a non-Error provider failure', async () => {
-    const ctx = new Context()
-    context = ctx
-    let registered: { handler: ConnectionRpcHandler } | undefined
-    ctx.provide('connection', {
-      rpc: {
-        handle: vi.fn((_channel: string, handler: ConnectionRpcHandler) => {
-          registered = { handler }
-          return async () => {}
-        }),
-      },
-    } as unknown as HostConnectionHandle)
-    ctx.provide('webServer', {} as never)
-    ctx.provide('settings', { get: () => ({}) } as unknown as SettingsProvider)
-    ctx.provide('credentials', {
-      resolve: async () => { throw 'boom' },
-    } as never)
-    const fiber = ctx.plugin({ inject, apply })
-    await fiber.await()
-    const result = await registered!.handler('balance', {}, new AbortController().signal)
-    expect(result).toMatchObject({
-      ok: false,
-      error: { message: 'boom' },
+    const { registered } = await bench({
+      settingsSection: {},
+      credentials: { resolve: async () => { throw 'boom' } } as never,
     })
+    const response = await registered!.fetch(balanceRequest())
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: { code: 'internal', message: 'boom' } })
   })
 })

@@ -2,7 +2,7 @@
 
 > **🌐 语言 / Language：** [English](README.md) · [**简体中文**](README.zh.md)
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI 的计费控件插件：侧边栏底部（`sidebar.footer.action`）的一个条目，显示当前选中对话的费用——来自本插件注册的 `billing` 会话投影——以及 provider 账户余额——来自 `/billing` 连接通道。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI 的计费控件插件：侧边栏底部（`sidebar.footer.action`）的一个条目，显示当前选中对话的费用——来自本插件注册的 `billing` 会话投影——以及 provider 账户余额——来自节点半端的 `/api/billing.balance` 端点。
 
 **GitHub 话题**：`dsh-plugin` · `deepseek-harness`
 
@@ -43,7 +43,7 @@
 
 ## 安全
 
-- **纯展示**。控件只渲染会话投影或 provider 账户里已有的数据。它不产生任何模型可见输入、不写会话日志，除节点半端在 harness 连接传输层注册的只读 `/billing` 余额通道（其 Host/Origin 信任栅栏默认只放行 loopback）外不新增任何 RPC。
+- **纯展示**。控件只渲染会话投影或 provider 账户里已有的数据。它不产生任何模型可见输入、不写会话日志，除节点半端在 harness 连接传输层注册的只读 `/api/billing.balance` 端点（其 Host/Origin 信任栅栏默认只放行 loopback）外不新增任何 RPC。
 - **模型体验**：不进入任何模型请求；Token 影响无；KV 缓存影响无。
 - **凭据留在宿主侧**。API key 由宿主半端通过 harness 的凭据服务或启动环境解析——与 DeepSeek provider 适配器同一通道——绝不进入浏览器包。
 
@@ -98,7 +98,7 @@ npm install @huanghanheng/dsh-ui-billing
 
 #### 模型看到什么
 
-无。控件只读取 `billing` 投影与 `/billing` 余额通道——两者都是只读展示面，数据已在会话日志或 provider 账户中。
+无。控件只读取 `billing` 投影与 `/api/billing.balance` 端点——两者都是只读展示面，数据已在会话日志或 provider 账户中。
 
 #### Token 影响
 

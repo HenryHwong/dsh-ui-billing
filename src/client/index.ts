@@ -1,9 +1,9 @@
 /**
  * Billing surface plugin, browser half: one widget at the sidebar foot
  * showing the currently selected conversation's cost (from the `billing`
- * session projection) and the provider account balance (from the `/billing`
- * connection channel). The widget owns no store and no event listener: the
- * cost source follows the current-session projection face, and the balance
+ * session projection) and the provider account balance (from the node half's
+ * `billing.balance` endpoint). The widget owns no store and no event listener:
+ * the cost source follows the current-session projection face, and the balance
  * source polls while mounted.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -20,7 +20,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-billing/client'
 import { BillingFooter } from './BillingFooter.tsx'
 import { en, zh, type BillingKey } from './locales.ts'
-import type { ConnectionHandle } from './seams/connection.ts'
+import { readProviderBalance } from './seams/connection.ts'
 import { currentSessionProjection } from './seams/sessions.ts'
 import { createBalanceSource, createBillingCostSource } from './sources.ts'
 
@@ -34,7 +34,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'billing'
 
-/** Required services: the slot ledger, sessions (selection + projections), the connection (balance channel), and copy. */
+/** Required services: the slot ledger, sessions (selection + projections), the connection (transport reset), and copy. */
 export const inject = ['slots', 'sessions', 'connection', 'locale']
 
 /**
@@ -44,9 +44,8 @@ export const inject = ['slots', 'sessions', 'connection', 'locale']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-billing: dictionaries')
 
-  const handle = ctx.get('connection') as ConnectionHandle
   const costSource = createBillingCostSource(currentSessionProjection(ctx.sessions))
-  const balanceSource = createBalanceSource(handle.rpc)
+  const balanceSource = createBalanceSource(readProviderBalance)
   // The account read is transport-owned: a reconnect invalidates a stale
   // balance, so re-read once the link is back (same lane as
   // ui-settings-general's metadata invalidations).

@@ -9,19 +9,14 @@
  */
 import type { BillingProjection } from '@deepseek-ai/dsh-billing/client';
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots';
-import type { ClientConnectionRpc } from './seams/connection.ts';
+import type { BalanceRead, ProviderBalance } from './seams/connection.ts';
 import type { CurrentSessionProjection } from './seams/sessions.ts';
 /** Cost of the currently selected session; undefined when none is selected or nothing is billed. */
 export type BillingCostSnapshot = BillingProjection | undefined;
 /** Account balance read state; `balance` rides the latest successful read while newer reads load. */
 export interface BalanceSnapshot {
     status: 'idle' | 'loading' | 'ok' | 'error';
-    balance?: {
-        currency: string;
-        totalBalance: number;
-        grantedBalance?: number;
-        toppedUpBalance?: number;
-    };
+    balance?: ProviderBalance;
     /** Provider or transport error message from the last failed read. */
     error?: string;
 }
@@ -51,5 +46,5 @@ export declare function createBillingCostSource(projection: CurrentSessionProjec
  * @param rpc - the connection's generic channel caller.
  * @returns the balance source.
  */
-export declare function createBalanceSource(rpc: ClientConnectionRpc): BalanceSource;
+export declare function createBalanceSource(read: () => Promise<BalanceRead>): BalanceSource;
 //# sourceMappingURL=sources.d.ts.map

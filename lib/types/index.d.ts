@@ -2,7 +2,7 @@
  * Billing surface plugin, node half: registers the `billing` session
  * projection (whole-log CNY cost against the price table captured at
  * composition load) and serves the provider account balance to the browser
- * half over the `/billing` connection RPC channel. The browser half ships via
+ * half over the `/api/billing.balance` endpoint. The browser half ships via
  * exports["./client"], discovered through the package.json `dsh.client`
  * declaration.
  *
@@ -13,10 +13,10 @@ import z from '@deepseek-ai/schemastery';
 import type { TieredModelPrice } from './projection.ts';
 /** Cordis plugin name. */
 export declare const name = "ui-billing";
-/** Required services: connection (RPC registry), settings (provider facts), and session projections are probed dynamically; webServer is injected at registration time. */
+/** Required services: connection (endpoint transport) and settings (provider facts); session projections are probed dynamically. */
 export declare const inject: string[];
-/** The balance channel this plugin owns; the browser half calls `balance` on it. */
-export declare const BALANCE_CHANNEL = "/billing";
+/** The balance endpoint this plugin owns; the browser half fetches the same literal. */
+export declare const BALANCE_PATH = "/api/billing.balance";
 /** Billing configuration as validated and defaulted by the Loader. */
 export interface Config {
     /** CNY-per-million-token prices by model id; missing models count as unpriced. */
@@ -34,10 +34,9 @@ export interface Config {
  * to price everything off-peak. */
 export declare const Config: z<Config>;
 /**
- * Host plugin body: register the balance endpoint on the `/billing` channel
- * and, when the composition mounts the projection registry, the `billing`
- * cost unit (its registration is an effect on this fiber, so unloading
- * removes the key).
+ * Host plugin body: register the balance endpoint and, when the composition
+ * mounts the projection registry, the `billing` cost unit (its registration is
+ * an effect on this fiber, so unloading removes the key).
  * @param ctx - registrant context carrying the connection and settings services.
  * @param config - the deployment's price table and peak windows.
  */
