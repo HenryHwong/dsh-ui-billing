@@ -87,7 +87,7 @@ npm install @huanghanheng/dsh-ui-billing
 ```json
 // $DSH_HOME/profiles/web/package.json
 {
-  "dependencies": { "@huanghanheng/dsh-ui-billing": "^0.1.0" },
+  "dependencies": { "@huanghanheng/dsh-ui-billing": "^0.2.0" },
   "dsh": { "profile": { "bundles": ["@huanghanheng/dsh-ui-billing"] } }
 }
 ```
