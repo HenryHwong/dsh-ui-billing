@@ -43,13 +43,13 @@ The projection's `stateVersion` is bumped whenever the fold semantics or default
 
 ## Security
 
-- **Display only.** The widget renders facts already present in the session projection or the provider account. It never produces a model-visible input, never writes the session log, and emits no new RPCs beyond the read-only `/billing` balance channel the node half registers under the loopback authority.
+- **Display only.** The widget renders facts already present in the session projection or the provider account. It never produces a model-visible input, never writes the session log, and emits no new RPCs beyond the read-only `/billing` balance channel the node half registers on the harness connection transport, whose Host/Origin trust fence admits loopback by default.
 - **Model Experience**: nothing reaches a model request; token effect none; KV-cache effect none.
 - **Credentials stay host-side.** The API key is resolved by the host half through the harness's credentials service or launch environment — the same seam the DeepSeek provider adapter uses — and never enters the browser bundle.
 
 ## Requirements
 
-- A DeepSeek Harness checkout or published `@deepseek-ai/dsh-*` packages at `0.1.1-rc.2` or newer, running the web profile.
+- A DeepSeek Harness checkout or published `@deepseek-ai/dsh-*` packages at `0.1.5-alpha.1` or newer, running the web profile.
 - **Projection registry composed**: the cost row reads the `billing` projection the node half registers, which requires the harness's session-projection seam (`@deepseek-ai/dsh-session-projection`, part of the web-app bundle). Without it the plugin still loads and the balance row works; the cost row shows `—`.
 - **A DeepSeek API key**: configured through the harness's credentials service (the web Models page writes it) or exported in the launching environment, as `DEEPSEEK_API_KEY` (the `llm-deepseek` route's default key reference).
 - No host instrumentation is required: the `sidebar.footer.action` slot the widget registers into ships in the published `@deepseek-ai/dsh-client-ui-sidebar`.
@@ -118,7 +118,7 @@ pnpm exec tsc -p tsconfig.host.json   # typecheck the node half + host tests
 pnpm build                   # tsc emit to lib/types + tsdown bundles for the node half
 ```
 
-The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` until the harness release publishes that package. The two halves typecheck as separate programs, matching the harness's host/client project split. The tests cover the projection fold (pricing helpers, peak windows, unpriced models, registration wiring), the balance read (HTTP normalization, credential resolution), the observable sources (projection following, polling lifecycle), the component (rows, refresh, rail glyph), and the node half on a real cordis context. The browser half's full-context registration spec lives in the harness checkout: published client bundles are ModuleLoader registrations, so a plain vitest import cannot load the runtime's slot services.
+The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` (this plugin owns that projection wire view). The two halves typecheck as separate programs, matching the harness's host/client project split. `pnpm build` covers the node half; the browser half ships as the committed `lib/client.js`, built inside a harness checkout with the harness's `clientBundle` preset. The tests cover the projection fold (pricing helpers, peak windows, unpriced models, registration wiring), the balance read (HTTP normalization, credential resolution), the observable sources and their seams (projection following, selection movement, polling lifecycle), the component (rows, refresh, rail glyph), and the node half on a real cordis context. The browser half's full-context registration spec lives in the harness checkout: published client bundles are ModuleLoader registrations, so a plain vitest import cannot load the renderer's slot services.
 
 ## Known Limitations and Deferred Work
 

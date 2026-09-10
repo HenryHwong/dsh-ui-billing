@@ -1,12 +1,10 @@
 /**
  * Vendored type-only mirror of `@deepseek-ai/dsh-billing/client` — the
- * `billing` session-projection type surface. The plugin's node half registers
- * the projection itself (src/projection.ts), and the harness ships the host
- * package as `@deepseek-ai/dsh-billing`; until that release lands on npm this
- * file stands in for the type-only import the browser half makes
- * (`BillingProjection`). Runtime code never sees it: the import is erased at
- * build, and the widget reads the projection face dynamically through the
- * runtime's projections outlet.
+ * `billing` session-projection wire view. The plugin owns both halves: the node
+ * half registers the projection (src/projection.ts) and the browser half reads
+ * that unit's face, so this file is where the browser half's type-only import
+ * resolves (tsconfig paths). Runtime code never sees it: the import is erased
+ * at build.
  *
  * Keep these interfaces in sync with the projection's wire view
  * (src/projection.ts in this repository).
