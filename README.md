@@ -21,11 +21,12 @@ The cost fold prices each usage-reporting step by its assembled message's `sourc
 
 | model | input (cache miss) | cache read | output |
 | --- | --- | --- | --- |
+| `deepseek-flash` | 1 | 0.02 | 4 |
 | `deepseek-v4-flash` | 1 | 0.02 | 4 |
 | `deepseek-v4-pro` | 4.5 | 0.15 | 13.5 |
 | `deepseek-v4-flash-vision-exp` | 1 | 0.02 | 4 |
 
-`deepseek-chat` / `deepseek-reasoner` keep the V3-era anchors (2/0.5/8 and 4/1/16) to cover legacy usage records; the current API catalog is V4 only. A model without an entry contributes its tokens to `unpricedTokens` instead of pretending they are free, so a GUI can say "cost" without pretending unknown-priced models are free. Peak-hour pricing is on by default: `peakHours` defaults to the official windows `[[540, 720], [840, 1080]]` (minutes since midnight of the price clock) with `utcOffsetMinutes` 480 (Beijing). The window model cannot exclude weekends, so a deployment needing exact weekend off-peak pricing should clear `peakHours` or override it. Prices are the deployment's responsibility and must track the provider's current schedule — override the whole table with the plugin `config.prices`:
+`deepseek-chat` / `deepseek-reasoner` keep the V3-era anchors (2/0.5/8 and 4/1/16) to cover legacy usage records; the current API catalog is V4 only. `deepseek-flash` is the current model id (DeepSeek-V4.1-Flash), and the retired `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` names still resolve to it at the Flash price. A model without an entry contributes its tokens to `unpricedTokens` instead of pretending they are free, so a GUI can say "cost" without pretending unknown-priced models are free. Peak-hour pricing is on by default: `peakHours` defaults to the official windows `[[540, 720], [840, 1080]]` (minutes since midnight of the price clock) with `utcOffsetMinutes` 480 (Beijing). The window model cannot exclude weekends, so a deployment needing exact weekend off-peak pricing should clear `peakHours` or override it. Prices are the deployment's responsibility and must track the provider's current schedule — override the whole table with the plugin `config.prices`:
 
 ```yaml
 - id: ui-billing

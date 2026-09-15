@@ -141,7 +141,7 @@ describe('plugin registration', () => {
       expect(register).toHaveBeenCalledTimes(1)
       const definition = register.mock.calls[0]![0]
       expect(definition.key).toBe('billing')
-      expect(definition.stateVersion).toBe(4)
+      expect(definition.stateVersion).toBe(5)
     } finally {
       await fiber.dispose()
     }
@@ -152,6 +152,7 @@ describe('plugin registration', () => {
     for (const model of [
       'deepseek-chat',
       'deepseek-reasoner',
+      'deepseek-flash',
       'deepseek-v4-flash',
       'deepseek-v4-pro',
       'deepseek-v4-flash-vision-exp',
@@ -162,6 +163,10 @@ describe('plugin registration', () => {
 
   it('defaults carry the current official V4 schedule with the Beijing peak windows', () => {
     const config = Config({} as Config)
+    expect(config.prices['deepseek-flash']).toEqual({
+      offPeak: { inputPerM: 1, cacheReadPerM: 0.02, outputPerM: 4 },
+      peak: { inputPerM: 2, cacheReadPerM: 0.04, outputPerM: 8 },
+    })
     expect(config.prices['deepseek-v4-flash']).toEqual({
       offPeak: { inputPerM: 1, cacheReadPerM: 0.02, outputPerM: 4 },
       peak: { inputPerM: 2, cacheReadPerM: 0.04, outputPerM: 8 },

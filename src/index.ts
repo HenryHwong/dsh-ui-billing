@@ -32,13 +32,19 @@ const DEFAULT_PROVIDER = 'deepseek-official'
  * Default CNY-per-million-token prices. The V4 catalog follows the official
  * schedule as of the plugin release (off-peak rates, with the workday peak
  * windows in `Config` doubling them); the deepseek-chat / deepseek-reasoner
- * entries are the legacy V3 anchors kept for older usage records. Providing
- * `config.prices` replaces the whole table — prices are the deployment's
- * responsibility and must track the provider's current schedule.
+ * entries are the legacy V3 anchors kept for older usage records. The provider
+ * bills the retired `deepseek-v4-flash` names at the current Flash price, so
+ * the Flash entries share one tier. Providing `config.prices` replaces the
+ * whole table — prices are the deployment's responsibility and must track the
+ * provider's current schedule.
  */
 const DEFAULT_PRICES: Record<string, TieredModelPrice> = {
   'deepseek-chat': { offPeak: { inputPerM: 2, cacheReadPerM: 0.5, outputPerM: 8 } },
   'deepseek-reasoner': { offPeak: { inputPerM: 4, cacheReadPerM: 1, outputPerM: 16 } },
+  'deepseek-flash': {
+    offPeak: { inputPerM: 1, cacheReadPerM: 0.02, outputPerM: 4 },
+    peak: { inputPerM: 2, cacheReadPerM: 0.04, outputPerM: 8 },
+  },
   'deepseek-v4-flash': {
     offPeak: { inputPerM: 1, cacheReadPerM: 0.02, outputPerM: 4 },
     peak: { inputPerM: 2, cacheReadPerM: 0.04, outputPerM: 8 },

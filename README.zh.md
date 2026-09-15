@@ -21,11 +21,12 @@
 
 | 模型 | 输入（缓存未命中） | 缓存读取 | 输出 |
 | --- | --- | --- | --- |
+| `deepseek-flash` | 1 | 0.02 | 4 |
 | `deepseek-v4-flash` | 1 | 0.02 | 4 |
 | `deepseek-v4-pro` | 4.5 | 0.15 | 13.5 |
 | `deepseek-v4-flash-vision-exp` | 1 | 0.02 | 4 |
 
-`deepseek-chat` / `deepseek-reasoner` 保留 V3 时代锚点（2/0.5/8 与 4/1/16）以覆盖旧 usage 记录；现行 API 目录只有 V4 模型。没有价格条目的模型，其 token 计入 `unpricedTokens` 而不是假装免费，这样 GUI 可以放心显示"费用"而无需假装未知定价的模型免费。峰谷计价默认开启：`peakHours` 默认是官方高峰窗口 `[[540, 720], [840, 1080]]`（价格时钟零点起算的分钟），`utcOffsetMinutes` 默认 480（北京时间）；时间窗模型无法排除周末，需要精确周末空闲价时清空 `peakHours` 或自行覆盖。价格是部署方的责任，必须跟随 provider 的现行价目表——用插件 `config.prices` 整体覆盖默认表：
+`deepseek-chat` / `deepseek-reasoner` 保留 V3 时代锚点（2/0.5/8 与 4/1/16）以覆盖旧 usage 记录；现行 API 目录只有 V4 模型。`deepseek-flash` 是当前模型 ID（DeepSeek-V4.1-Flash），已下线的旧名 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 请求仍由该模型承接、按 Flash 价计费。没有价格条目的模型，其 token 计入 `unpricedTokens` 而不是假装免费，这样 GUI 可以放心显示"费用"而无需假装未知定价的模型免费。峰谷计价默认开启：`peakHours` 默认是官方高峰窗口 `[[540, 720], [840, 1080]]`（价格时钟零点起算的分钟），`utcOffsetMinutes` 默认 480（北京时间）；时间窗模型无法排除周末，需要精确周末空闲价时清空 `peakHours` 或自行覆盖。价格是部署方的责任，必须跟随 provider 的现行价目表——用插件 `config.prices` 整体覆盖默认表：
 
 ```yaml
 - id: ui-billing

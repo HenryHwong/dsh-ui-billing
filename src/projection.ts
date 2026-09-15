@@ -149,7 +149,7 @@ export function billingProjectionDefinition(config: ResolvedBillingConfig): Bill
     // Persisted cache rows are keyed by this version alongside the session and
     // key, so bumping it discards rows folded under older semantics or prices
     // and every session refolds from its log on the next read.
-    stateVersion: 4,
+    stateVersion: 5,
     stateSchema: billingSchema,
     init: (): BillingState => ({ cost: 0, unpricedTokens: 0 }),
     apply: (state: BillingState, event: SessionEvent): BillingState => {
