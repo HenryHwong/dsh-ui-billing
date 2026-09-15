@@ -1,7 +1,7 @@
 {
   "name": "@huanghanheng/dsh-ui-billing",
   "description": "Billing widget for the DeepSeek Harness Web GUI: whole-log session cost projection and API balance at the sidebar foot",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publishConfig": {
     "access": "public"
   },
