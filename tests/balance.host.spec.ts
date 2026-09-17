@@ -208,6 +208,15 @@ describe('resolveBalanceRequest', () => {
     expect(resolved.baseURL).toBe('https://api.deepseek.com')
   })
 
+  it('reads the account root below the Messages chat mount', async () => {
+    const ctx = contextWith({
+      settingsSection: { protocol: 'messages', baseURL: 'https://gateway.example/anthropic' },
+      credentialValue: 'sk-cred',
+    })
+    const resolved = await resolveBalanceRequest(ctx, 'deepseek-official')
+    expect(resolved.baseURL).toBe('https://gateway.example')
+  })
+
   it('rejects MISSING_CREDENTIAL when no key resolves', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
     const ctx = contextWith({})

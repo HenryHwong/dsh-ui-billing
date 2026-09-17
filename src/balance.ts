@@ -16,6 +16,7 @@ import { assertUsableApiKey, attributionHeaders, isQuotaExceededError, LlmError,
 import {
   resolveAdapterOptions,
   type Config as DeepSeekProviderConfig,
+  type ResolvedDeepSeekOptions,
   type WireError,
 } from '@deepseek-ai/dsh-llm-deepseek'
 import { settingsSection } from './seams/settings.ts'
@@ -56,6 +57,17 @@ function noKeyError(provider: string, ref: CredentialRef): LlmError {
   )
 }
 
+/** Path segment the Messages protocol mounts below the platform root. */
+const MESSAGES_ROOT_SUFFIX = '/anthropic'
+
+/** The account endpoints answer on the platform root, not below a chat protocol mount. */
+function accountBaseURL(connection: ResolvedDeepSeekOptions): string {
+  const root = connection.baseURL.replace(/\/+$/u, '')
+  return connection.protocol === 'messages' && root.endsWith(MESSAGES_ROOT_SUFFIX)
+    ? root.slice(0, -MESSAGES_ROOT_SUFFIX.length)
+    : root
+}
+
 /**
  * Resolve the balance endpoint facts for the DeepSeek provider route. The
  * merged `llm-deepseek` settings section is the single configuration source,
@@ -81,7 +93,7 @@ export async function resolveBalanceRequest(ctx: Context, provider: string): Pro
   }
   return {
     provider,
-    baseURL: connection.baseURL,
+    baseURL: accountBaseURL(connection),
     apiKey,
     userId: String(getOrCreateAnonymousUserId()),
   }
