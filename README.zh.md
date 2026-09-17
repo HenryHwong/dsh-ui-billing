@@ -11,7 +11,7 @@
 ## 功能
 
 - **当前会话费用**。节点半端把每条 `assistant/message` 的 usage 记录折叠进 `billing` 会话投影（整篇日志的 CNY 费用与未计价 token 数），按组合加载时捕获的价格表计价；宽侧边栏渲染一行带标签的数值显示所选对话的金额。切换会话即切换数值；分页与压缩不会改变它。含未计价 token 的会话在金额上显示 `(+N tokens unpriced)` 提示。
-- **实时 API 余额**。余额行通过 harness 自身的连接事实（合并的 `llm-deepseek` 设置 + 启动环境 + 凭据通道）读取 provider 账户，挂载期间每 60 秒刷新一次，连接重置后重读，也可通过行内刷新按钮手动刷新。
+- **实时 API 余额**。余额行通过 harness 自身的连接事实（合并的 `llm-deepseek` 设置 + 启动环境 + 凭据通道）读取 provider 账户，挂载期间每 60 秒刷新一次，连接重置后重读，也可通过行内刷新按钮手动刷新。这些事实给出的是所选协议的聊天根，因此余额读取取 Messages 协议 `/anthropic` 挂载之上的平台根，`/user/balance` 在那里应答。
 - **折叠轨道字形**。侧边栏折叠时只渲染一个 ¥ 字形，提示气泡携带两行内容；点击即刷新余额。
 - **默认空闲**。没有订阅者挂载时不发起任何请求——余额轮询随第一个订阅者启动、随最后一个离开停止。
 
@@ -50,7 +50,7 @@
 
 ## 前置要求
 
-- DeepSeek Harness 检出（或已发布的 `@deepseek-ai/dsh-*` 包）为 `0.1.5-alpha.1` 或更新版本，并运行 web profile。
+- DeepSeek Harness 检出（或已发布的 `@deepseek-ai/dsh-*` 包）为 `0.1.6-alpha.1` 或更新版本，并运行 web profile。
 - **投影注册表已组合**：费用行读取节点半端注册的 `billing` 投影，需要 harness 的会话投影缝（`@deepseek-ai/dsh-session-projection`，随 web-app bundle 提供）。没有它插件仍可加载、余额行照常工作；费用行显示 `—`。
 - **DeepSeek API key**：通过 harness 的凭据服务配置（web Models 页写入）或在启动环境中导出，即 `DEEPSEEK_API_KEY`（`llm-deepseek` 路由的默认 key 引用）。
 - 无需宿主插桩：控件注册的 `sidebar.footer.action` 座位随已发布的 `@deepseek-ai/dsh-client-ui-sidebar` 提供。
@@ -119,7 +119,7 @@ pnpm exec tsc -p tsconfig.host.json   # 类型检查节点半端 + host 测试
 pnpm build                   # tsc 产出 lib/types + tsdown 打包节点半端
 ```
 
-仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入由 `types/dsh-billing/client.d.ts` 镜像提供（该投影的 wire 视图由本插件自己拥有）。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。`pnpm build` 只覆盖节点半端；浏览器半端以随包提交的 `lib/client.js` 交付，需在 harness 检出中用 harness 的 `clientBundle` 预设构建。测试覆盖投影折叠（计价辅助、峰谷窗口、未计价模型、注册接线）、余额读取（HTTP 归一化、凭据解析）、响应式源及其接缝（投影跟随、选择迁移、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 renderer 的槽位服务。
+仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入由 `types/dsh-billing/client.d.ts` 镜像提供（该投影的 wire 视图由本插件自己拥有）。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。`pnpm build` 只覆盖节点半端；浏览器半端以随包提交的 `lib/client.js` 交付，需在 harness 检出中用 harness 的 `clientBundle` 预设构建。组件测试内联已发布的 `@deepseek-ai/dsh-client-ui-primitives` bundle，因此该 bundle 导入的 Markdown、语法高亮与微解析包在本仓库以 devDependencies 声明——上游已把它们列为仅开发依赖，运行期由 harness 应用提供。测试覆盖投影折叠（计价辅助、峰谷窗口、未计价模型、注册接线）、余额读取（HTTP 归一化、凭据解析）、响应式源及其接缝（投影跟随、选择迁移、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 renderer 的槽位服务。
 
 ## Known Limitations and Deferred Work
 

@@ -11,7 +11,7 @@ Billing widget plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/
 ## Features
 
 - **Current-session cost.** The node half folds every `assistant/message` usage record into the `billing` session projection (whole-log CNY cost plus unpriced tokens) against the price table captured at composition load, and the wide sidebar renders a labeled row with the selected conversation's figure. Switching sessions swaps the figure; paging and compaction never change it. A session with unpriced tokens annotates the amount with `(+N tokens unpriced)`.
-- **Live API balance.** The balance row reads the provider account through the harness's own connection facts (merged `llm-deepseek` settings + launch environment + credential seam) and refreshes every 60 seconds while mounted, on connection reset, and on demand via the row's refresh button.
+- **Live API balance.** The balance row reads the provider account through the harness's own connection facts (merged `llm-deepseek` settings + launch environment + credential seam) and refreshes every 60 seconds while mounted, on connection reset, and on demand via the row's refresh button. Those facts name the selected protocol's chat root, so the read targets the platform root above the Messages protocol's `/anthropic` mount, where `/user/balance` answers.
 - **Collapsed-rail glyph.** When the sidebar is collapsed the widget renders a single ¥ glyph whose tooltip carries both lines; clicking it refreshes the balance.
 - **Idle by default.** Nothing is fetched while no subscriber is mounted — the balance poll starts with the first subscriber and stops with the last.
 
@@ -50,7 +50,7 @@ The projection's `stateVersion` is bumped whenever the fold semantics or default
 
 ## Requirements
 
-- A DeepSeek Harness checkout or published `@deepseek-ai/dsh-*` packages at `0.1.5-alpha.1` or newer, running the web profile.
+- A DeepSeek Harness checkout or published `@deepseek-ai/dsh-*` packages at `0.1.6-alpha.1` or newer, running the web profile.
 - **Projection registry composed**: the cost row reads the `billing` projection the node half registers, which requires the harness's session-projection seam (`@deepseek-ai/dsh-session-projection`, part of the web-app bundle). Without it the plugin still loads and the balance row works; the cost row shows `—`.
 - **A DeepSeek API key**: configured through the harness's credentials service (the web Models page writes it) or exported in the launching environment, as `DEEPSEEK_API_KEY` (the `llm-deepseek` route's default key reference).
 - No host instrumentation is required: the `sidebar.footer.action` slot the widget registers into ships in the published `@deepseek-ai/dsh-client-ui-sidebar`.
@@ -119,7 +119,7 @@ pnpm exec tsc -p tsconfig.host.json   # typecheck the node half + host tests
 pnpm build                   # tsc emit to lib/types + tsdown bundles for the node half
 ```
 
-The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` (this plugin owns that projection wire view). The two halves typecheck as separate programs, matching the harness's host/client project split. `pnpm build` covers the node half; the browser half ships as the committed `lib/client.js`, built inside a harness checkout with the harness's `clientBundle` preset. The tests cover the projection fold (pricing helpers, peak windows, unpriced models, registration wiring), the balance read (HTTP normalization, credential resolution), the observable sources and their seams (projection following, selection movement, polling lifecycle), the component (rows, refresh, rail glyph), and the node half on a real cordis context. The browser half's full-context registration spec lives in the harness checkout: published client bundles are ModuleLoader registrations, so a plain vitest import cannot load the renderer's slot services.
+The repository compiles `src/` against published `@deepseek-ai/dsh-*` packages; the type-only `@deepseek-ai/dsh-billing/client` import is mirrored under `types/dsh-billing/client.d.ts` (this plugin owns that projection wire view). The two halves typecheck as separate programs, matching the harness's host/client project split. `pnpm build` covers the node half; the browser half ships as the committed `lib/client.js`, built inside a harness checkout with the harness's `clientBundle` preset. The component test inlines the published `@deepseek-ai/dsh-client-ui-primitives` bundle, so the Markdown, syntax-highlighting, and micro-parser packages that bundle imports are declared here as devDependencies — the published package lists them as development-only, and the harness app supplies them at runtime. The tests cover the projection fold (pricing helpers, peak windows, unpriced models, registration wiring), the balance read (HTTP normalization, credential resolution), the observable sources and their seams (projection following, selection movement, polling lifecycle), the component (rows, refresh, rail glyph), and the node half on a real cordis context. The browser half's full-context registration spec lives in the harness checkout: published client bundles are ModuleLoader registrations, so a plain vitest import cannot load the renderer's slot services.
 
 ## Known Limitations and Deferred Work
 
