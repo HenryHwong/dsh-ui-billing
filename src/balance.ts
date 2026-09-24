@@ -15,11 +15,19 @@ import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { assertUsableApiKey, attributionHeaders, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import {
   resolveAdapterOptions,
-  type Config as DeepSeekProviderConfig,
+  type Options as DeepSeekProviderOptions,
   type ResolvedDeepSeekOptions,
-  type WireError,
 } from '@deepseek-ai/dsh-llm-deepseek'
 import { settingsSection } from './seams/settings.ts'
+
+/** Error envelope of a non-2xx provider response. */
+interface WireError {
+  error?: {
+    code?: string
+    type?: string
+    message?: string
+  }
+}
 
 /** Wire payload of the DeepSeek balance endpoint. */
 export interface WireBalance {
@@ -60,24 +68,22 @@ function noKeyError(provider: string, ref: CredentialRef): LlmError {
 /** Path segment the Messages protocol mounts below the platform root. */
 const MESSAGES_ROOT_SUFFIX = '/anthropic'
 
-/** The account endpoints answer on the platform root, not below a chat protocol mount. */
+/** The account endpoints answer on the platform root, not below the Messages mount. */
 function accountBaseURL(connection: ResolvedDeepSeekOptions): string {
   const root = connection.baseURL.replace(/\/+$/u, '')
-  return connection.protocol === 'messages' && root.endsWith(MESSAGES_ROOT_SUFFIX)
-    ? root.slice(0, -MESSAGES_ROOT_SUFFIX.length)
-    : root
+  return root.endsWith(MESSAGES_ROOT_SUFFIX) ? root.slice(0, -MESSAGES_ROOT_SUFFIX.length) : root
 }
 
 /**
  * Resolve the balance endpoint facts for the DeepSeek provider route. The
- * merged `llm-deepseek` settings section is the single configuration source,
- * so a changed base URL or key reference reaches the very next read.
+ * `llm-deepseek` entry's live configuration is the single source, so a changed
+ * base URL or key reference reaches the very next read.
  * @param ctx - registrant context carrying the settings service.
  * @param provider - the provider route the balance belongs to.
  * @returns the request facts; rejects with `MISSING_CREDENTIAL` when no key resolves.
  */
 export async function resolveBalanceRequest(ctx: Context, provider: string): Promise<BalanceRequest> {
-  const raw = settingsSection<DeepSeekProviderConfig>(ctx, 'llm-deepseek')
+  const raw = settingsSection<DeepSeekProviderOptions>(ctx, 'llm-deepseek')
   const connection = resolveAdapterOptions(raw ?? {}, launchEnvironmentOf(ctx))
   const ref = connection.apiKeyEnv
   const credentials = ctx.get('credentials')

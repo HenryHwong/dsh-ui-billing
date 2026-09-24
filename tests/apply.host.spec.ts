@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { ConnectionFetchRoute, HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
-import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+import type SettingsForms from '@deepseek-ai/dsh-settings'
 import { BALANCE_PATH, apply, inject } from '../src/index.ts'
 
 let context: Context | undefined
@@ -43,8 +43,8 @@ async function bench(options: { settingsSection?: object; credentials?: object; 
   })
   ctx.provide('connection', { fetch: { register } } as unknown as HostConnectionHandle)
   ctx.provide('settings', {
-    get: () => options.settingsSection,
-  } as unknown as SettingsProvider)
+    describe: () => [{ ns: 'llm-deepseek', value: options.settingsSection }],
+  } as unknown as SettingsForms)
   ctx.provide('credentials', options.credentials ?? {
     resolve: async () => ({ value: 'sk-test' }),
   } as never)

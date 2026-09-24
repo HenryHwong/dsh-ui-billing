@@ -35,8 +35,8 @@ export interface BalanceRequest {
 }
 /**
  * Resolve the balance endpoint facts for the DeepSeek provider route. The
- * merged `llm-deepseek` settings section is the single configuration source,
- * so a changed base URL or key reference reaches the very next read.
+ * `llm-deepseek` entry's live configuration is the single source, so a changed
+ * base URL or key reference reaches the very next read.
  * @param ctx - registrant context carrying the settings service.
  * @param provider - the provider route the balance belongs to.
  * @returns the request facts; rejects with `MISSING_CREDENTIAL` when no key resolves.

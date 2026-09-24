@@ -1,12 +1,12 @@
 /**
  * Host-half balance read: `fetchBalance` normalizes the provider endpoint
  * (success, HTTP errors, malformed bodies, transport failures, aborts), and
- * `resolveBalanceRequest` gathers the endpoint facts from the settings
- * section, the credential seam, and the launch environment.
+ * `resolveBalanceRequest` gathers the endpoint facts from the provider entry's
+ * live configuration, the credential seam, and the launch environment.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import SettingsProvider from '@deepseek-ai/dsh-settings'
+import SettingsForms from '@deepseek-ai/dsh-settings'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import { fetchBalance, resolveBalanceRequest } from '../src/balance.ts'
@@ -172,8 +172,10 @@ describe('resolveBalanceRequest', () => {
   }): Context {
     const ctx = new Context()
     ctx.provide('settings', {
-      get: () => options.settingsSection,
-    } as unknown as SettingsProvider)
+      describe: () => (options.settingsSection === undefined
+        ? []
+        : [{ ns: 'llm-deepseek', value: options.settingsSection }]),
+    } as unknown as SettingsForms)
     if (options.credentialValue !== undefined) {
       ctx.provide('credentials', {
         resolve: async () => ({ value: options.credentialValue }),
@@ -187,7 +189,7 @@ describe('resolveBalanceRequest', () => {
     return ctx
   }
 
-  it('resolves the endpoint from the settings section and the credential seam', async () => {
+  it('resolves the endpoint from the provider entry config and the credential seam', async () => {
     const ctx = contextWith({
       settingsSection: { baseURL: 'https://gateway.example' },
       credentialValue: 'sk-cred',
@@ -208,9 +210,9 @@ describe('resolveBalanceRequest', () => {
     expect(resolved.baseURL).toBe('https://api.deepseek.com')
   })
 
-  it('reads the account root below the Messages chat mount', async () => {
+  it('reads the account root below the Messages mount', async () => {
     const ctx = contextWith({
-      settingsSection: { protocol: 'messages', baseURL: 'https://gateway.example/anthropic' },
+      settingsSection: { baseURL: 'https://gateway.example/anthropic' },
       credentialValue: 'sk-cred',
     })
     const resolved = await resolveBalanceRequest(ctx, 'deepseek-official')
@@ -228,7 +230,7 @@ describe('resolveBalanceRequest', () => {
 
   it('rejects MISSING_CREDENTIAL when the credential seam resolves nothing', async () => {
     const ctx = new Context()
-    ctx.provide('settings', { get: () => undefined } as unknown as SettingsProvider)
+    ctx.provide('settings', { describe: () => [] } as unknown as SettingsForms)
     ctx.provide('credentials', { resolve: async () => undefined } as never)
     await expect(resolveBalanceRequest(ctx, 'deepseek-official')).rejects.toMatchObject({
       code: 'MISSING_CREDENTIAL',
