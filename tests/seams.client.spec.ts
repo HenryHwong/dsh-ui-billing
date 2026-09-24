@@ -1,10 +1,10 @@
 /**
- * The current-session projection seam: the selected id comes off the sessions
- * list snapshot and resolves through that session's binding projections
- * outlet, so a sessions-service move lands here rather than in the sources.
+ * The displayed-session projection seam: the session area adapter's current
+ * binding owns the displayed id and resolves the requested projection face, so
+ * a session-area move lands here rather than in the sources.
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { UiSession } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import { currentSessionProjection } from '../src/client/seams/sessions.ts'
 
@@ -12,61 +12,72 @@ function faceOf(value: unknown): HostObservable<unknown> {
   return { getSnapshot: () => value, subscribe: () => () => {} }
 }
 
-/** A stub sessions service whose selection and bindings can move. */
-function sessionsOf(initial: { current?: string; bindings: Record<string, HostObservable<unknown>> }) {
-  let current = initial.current
+/** A stub session area adapter whose displayed session and faces can move. */
+function uiSessionOf(initial: { key?: string; faces?: Record<string, HostObservable<unknown>> }) {
+  let key = initial.key
+  let faces = initial.faces ?? {}
   const listeners = new Set<() => void>()
   const requestedKeys: string[] = []
-  const service = {
-    list: {
-      getSnapshot: () => ({ current }),
-      subscribe: (fn: () => void) => {
-        listeners.add(fn)
-        return () => { listeners.delete(fn) }
-      },
-    },
-    binding: (id: string) => {
-      const face = initial.bindings[id]
-      return face === undefined
+  const binding = () => ({
+    key,
+    hooks: {},
+    keyedHooks: {
+      projection: key === undefined
         ? undefined
-        : { session: { projections: { faceOf: (key: string) => { requestedKeys.push(key); return face } } } }
+        : (requested: string) => {
+          requestedKeys.push(requested)
+          return faces[requested]
+        },
     },
-    select(next?: string): void {
-      current = next
+    props: {},
+  })
+  const current = {
+    getSnapshot: binding,
+    subscribe: (fn: () => void) => {
+      listeners.add(fn)
+      return () => { listeners.delete(fn) }
+    },
+  }
+  return {
+    uiSession: { adapter: { current } } as unknown as UiSession,
+    requestedKeys,
+    display(next?: string, nextFaces?: Record<string, HostObservable<unknown>>): void {
+      key = next
+      faces = nextFaces ?? {}
       for (const fn of [...listeners]) fn()
     },
   }
-  return { sessions: service as unknown as ISessions & { select(next?: string): void }, requestedKeys }
 }
 
 describe('currentSessionProjection', () => {
-  it('resolves the selected binding face for the requested key', () => {
+  it('resolves the displayed binding face for the requested key', () => {
     const billing = faceOf({ cost: 1 })
-    const { sessions, requestedKeys } = sessionsOf({ current: 'a', bindings: { a: billing } })
-    const projection = currentSessionProjection(sessions)
+    const { uiSession, requestedKeys } = uiSessionOf({ key: 'a', faces: { billing } })
+    const projection = currentSessionProjection(uiSession)
 
     expect(projection.face('billing')).toBe(billing)
     expect(requestedKeys).toEqual(['billing'])
   })
 
-  it('reports no face without a selection or without a materialized binding', () => {
-    const { sessions } = sessionsOf({ bindings: { a: faceOf(null) } })
-    const projection = currentSessionProjection(sessions)
+  it('reports no face without a displayed session', () => {
+    const { uiSession, display } = uiSessionOf({ faces: { billing: faceOf(null) } })
+    const projection = currentSessionProjection(uiSession)
 
     expect(projection.face('billing')).toBeUndefined()
-    sessions.select('missing')
+    display('a')
     expect(projection.face('billing')).toBeUndefined()
   })
 
-  it('follows selection movement through the list feed', () => {
+  it('follows display movement through the binding feed', () => {
     const first = faceOf({ cost: 1 })
     const second = faceOf({ cost: 2 })
-    const { sessions } = sessionsOf({ current: 'a', bindings: { a: first, b: second } })
-    const projection = currentSessionProjection(sessions)
+    const { uiSession, display } = uiSessionOf({ key: 'a', faces: { billing: first } })
+    const projection = currentSessionProjection(uiSession)
     const listener = vi.fn()
     projection.subscribe(listener)
 
-    sessions.select('b')
+    expect(projection.face('billing')).toBe(first)
+    display('b', { billing: second })
     expect(projection.face('billing')).toBe(second)
     expect(listener).toHaveBeenCalledTimes(1)
   })

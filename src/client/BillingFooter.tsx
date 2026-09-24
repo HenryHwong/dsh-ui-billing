@@ -9,7 +9,7 @@
  */
 
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconRefreshOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconRefreshOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { BillingCostSnapshot, BalanceSnapshot } from './sources.ts'
 import type { BillingKey } from './locales.ts'
@@ -98,7 +98,7 @@ export function BillingFooter({ wide, useBillingCost, useBalance, refreshBalance
             onClick={() => { refreshBalance() }}
             data-billing-refresh
           >
-            <IconRefreshOutline16 size={12} />
+            <IconRefreshOutlineRegular size={12} />
           </button>
         </Tooltip>
       </div>

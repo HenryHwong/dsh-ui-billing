@@ -1,14 +1,17 @@
 /**
  * Billing surface plugin, browser half: one widget at the sidebar foot
- * showing the currently selected conversation's cost (from the `billing`
+ * showing the displayed conversation's cost (from the `billing`
  * session projection) and the provider account balance (from the node half's
  * `billing.balance` endpoint). The widget owns no store and no event listener:
- * the cost source follows the current-session projection face, and the balance
+ * the cost source follows the displayed-session projection face, and the balance
  * source polls while mounted.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-// Type-only: pulls the sessions service's Context merge (ctx.sessions).
-import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+// Type-only: pulls the connection service's Context merge (ctx.connection)
+// and its 'connection/reset' event.
+import type {} from '@deepseek-ai/dsh-client-connection/client'
+// Type-only: pulls the session area adapter's Context merge (ctx.uiSession).
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer's slots service merge (ctx.slots).
@@ -34,8 +37,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'billing'
 
-/** Required services: the slot ledger, sessions (selection + projections), the connection (transport reset), and copy. */
-export const inject = ['slots', 'sessions', 'connection', 'locale']
+/** Required services: the slot ledger, the session area adapter (displayed session + projections), the connection (transport reset), and copy. */
+export const inject = ['slots', 'uiSession', 'connection', 'locale']
 
 /**
  * Client plugin body: register the dictionaries and the sidebar-foot widget.
@@ -44,7 +47,7 @@ export const inject = ['slots', 'sessions', 'connection', 'locale']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-billing: dictionaries')
 
-  const costSource = createBillingCostSource(currentSessionProjection(ctx.sessions))
+  const costSource = createBillingCostSource(currentSessionProjection(ctx.uiSession))
   const balanceSource = createBalanceSource(readProviderBalance)
   // The account read is transport-owned: a reconnect invalidates a stale
   // balance, so re-read once the link is back (same lane as

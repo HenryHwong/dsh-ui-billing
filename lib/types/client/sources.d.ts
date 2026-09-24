@@ -31,11 +31,11 @@ export interface BalanceSource extends HostObservable<BalanceSnapshot> {
     refresh(): Promise<void>;
 }
 /**
- * Follow the current session's `billing` projection. Selection changes rebind
- * the projection face; face movement re-reads the snapshot. The sessions
- * service owns selection, so this source follows the seam's selection feed
- * instead of a list store of its own.
- * @param projection - the current-session projection seam.
+ * Follow the displayed session's `billing` projection. Display changes rebind
+ * the projection face; face movement re-reads the snapshot. The session area
+ * adapter owns the displayed session, so this source follows the seam's
+ * display feed instead of a list store of its own.
+ * @param projection - the displayed-session projection seam.
  * @returns the cost source.
  */
 export declare function createBillingCostSource(projection: CurrentSessionProjection): BillingCostSource;

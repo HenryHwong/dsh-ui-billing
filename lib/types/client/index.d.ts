@@ -1,9 +1,9 @@
 /**
  * Billing surface plugin, browser half: one widget at the sidebar foot
- * showing the currently selected conversation's cost (from the `billing`
+ * showing the displayed conversation's cost (from the `billing`
  * session projection) and the provider account balance (from the node half's
  * `billing.balance` endpoint). The widget owns no store and no event listener:
- * the cost source follows the current-session projection face, and the balance
+ * the cost source follows the displayed-session projection face, and the balance
  * source polls while mounted.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
@@ -14,7 +14,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         billing: BillingKey;
     }
 }
-/** Required services: the slot ledger, sessions (selection + projections), the connection (transport reset), and copy. */
+/** Required services: the slot ledger, the session area adapter (displayed session + projections), the connection (transport reset), and copy. */
 export declare const inject: string[];
 /**
  * Client plugin body: register the dictionaries and the sidebar-foot widget.
