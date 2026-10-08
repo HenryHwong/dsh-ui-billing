@@ -50,9 +50,9 @@
 
 ## 前置要求
 
-- DeepSeek Harness 检出（或已发布的 `@deepseek-ai/dsh-*` 包）为 `0.1.7-rc.1` 或更新版本，并运行 web profile。
+- DeepSeek Harness 检出（或已发布的 `@deepseek-ai/dsh-*` 包）为 `0.2.1-alpha.1` 或更新版本，并运行 web profile。
 - **投影注册表已组合**：费用行读取节点半端注册的 `billing` 投影，需要 harness 的会话投影缝（`@deepseek-ai/dsh-session-projection`，随 web-app bundle 提供）。没有它插件仍可加载、余额行照常工作；费用行显示 `—`。
-- **DeepSeek API key**：通过 harness 的凭据服务配置（web Models 页写入）或在启动环境中导出，即 `DEEPSEEK_API_KEY`（`llm-deepseek` 路由的默认 key 引用）。
+- **DeepSeek API key**：通过 harness 的凭据服务配置（web Models 页写入）或在启动环境中导出，即 `DEEPSEEK_API_KEY`（DeepSeek API-key provider 条目的默认 key 引用）。
 - 无需宿主插桩：控件注册的 `sidebar.footer.action` 座位随已发布的 `@deepseek-ai/dsh-client-ui-sidebar` 提供。
 
 ## 安装
@@ -119,7 +119,7 @@ pnpm exec tsc -p tsconfig.host.json   # 类型检查节点半端 + host 测试
 pnpm build                   # tsc 产出 lib/types + tsdown 打包节点半端
 ```
 
-仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入由 `types/dsh-billing/client.d.ts` 镜像提供（该投影的 wire 视图由本插件自己拥有）。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。`pnpm build` 只覆盖节点半端；浏览器半端以随包提交的 `lib/client.js` 交付，需在 harness 检出中用 harness 的 `clientBundle` 预设构建。组件测试内联已发布的 `@deepseek-ai/dsh-client-ui-primitives` bundle，因此该 bundle 导入的 Markdown、语法高亮与微解析包，以及它再导出的图标与 store 包（`simple-icons`、`@deepseek-ai/dsh-util-workspace-path`，以及经由共享 store 的 `zustand` / `immer`）都在本仓库以 devDependencies 声明——上游已把它们列为仅开发依赖，运行期由 harness 应用提供。测试覆盖投影折叠（计价辅助、峰谷窗口、未计价模型、注册接线）、余额读取（HTTP 归一化、凭据解析）、响应式源及其接缝（投影跟随、展示迁移、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 renderer 的槽位服务。
+仓库针对已发布的 `@deepseek-ai/dsh-*` 包编译 `src/`；类型层面的 `@deepseek-ai/dsh-billing/client` 导入由 `types/dsh-billing/client.d.ts` 镜像提供（该投影的 wire 视图由本插件自己拥有）。两个半端作为两个独立程序分别做类型检查，与 harness 的 host/client 项目拆分一致。`pnpm build` 只覆盖节点半端；浏览器半端以随包提交的 `lib/client.js` 交付，需在 harness 检出中用 harness 的 `clientBundle` 预设构建。组件测试内联已发布的 `@deepseek-ai/dsh-client-ui-primitives` bundle，因此该 bundle 导入的 Markdown、语法高亮与微解析包，以及它导入或再导出的图标、workspace-path、code-language 与 store 包（`simple-icons`、`@deepseek-ai/dsh-util-workspace-path`、`@deepseek-ai/dsh-util-code-language`，以及经由共享 store 的 `zustand` / `immer`）都在本仓库以 devDependencies 声明——上游已把它们列为仅开发依赖，运行期由 harness 应用提供。测试覆盖投影折叠（计价辅助、峰谷窗口、未计价模型、注册接线）、余额读取（HTTP 归一化、凭据解析）、响应式源及其接缝（投影跟随、展示迁移、轮询生命周期）、组件（两行、刷新、轨道字形），以及节点半端在真实 cordis 上下文上的注册与释放。浏览器半端的完整上下文注册测试保留在 harness 检出中：已发布的客户端包是 ModuleLoader 注册形态，普通 vitest 导入无法加载 renderer 的槽位服务。
 
 ## Known Limitations and Deferred Work
 
