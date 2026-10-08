@@ -12,7 +12,6 @@
   "include": [
     "src/index.ts",
     "src/balance.ts",
-    "src/invariant.ts",
     "src/projection.ts"
   ]
 }
